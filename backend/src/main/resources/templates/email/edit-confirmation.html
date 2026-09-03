@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Confirmación de edición</title></head>
+<body style="margin:0;padding:0;background-color:#FDFDD0;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFDD0;padding:24px 0;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:6px;overflow:hidden;">
+        <tr>
+          <td style="background-color:#004F2E;color:#FFFFF0;padding:20px 24px;font-size:20px;font-weight:bold;">
+            ContainerTrack
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px;color:#2E2417;">
+            <p>Se registraron cambios en el contenedor <strong th:text="${containerNumber}">CONT0000000</strong>
+               realizados por <strong th:text="${editorName}">Editor</strong>.</p>
+            <p>Campos modificados:</p>
+            <ul>
+              <li th:each="field : ${changedFields}" th:text="${field}">campo</li>
+            </ul>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

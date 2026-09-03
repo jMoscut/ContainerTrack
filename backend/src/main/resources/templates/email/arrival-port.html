@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Alerta de arribo a puerto</title></head>
+<body style="margin:0;padding:0;background-color:#FDFDD0;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFDD0;padding:24px 0;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:6px;overflow:hidden;">
+        <tr>
+          <td style="background-color:#004F2E;color:#FFFFF0;padding:20px 24px;font-size:20px;font-weight:bold;">
+            ContainerTrack
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px;color:#2E2417;">
+            <p>El contenedor <strong th:text="${containerNumber}">CONT0000000</strong> tiene un arribo a puerto
+               estimado para <strong th:text="${targetInstant}">-</strong>.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
