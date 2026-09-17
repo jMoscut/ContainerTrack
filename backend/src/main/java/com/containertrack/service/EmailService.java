@@ -27,7 +27,7 @@ public class EmailService {
     private static final URI BREVO_ENDPOINT = URI.create("https://api.brevo.com/v3/smtp/email");
 
     private final TemplateEngine templateEngine;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient;
 
     @Value("${brevo.api-key}")
@@ -39,9 +39,8 @@ public class EmailService {
     @Value("${brevo.sender-name:ContainerTrack}")
     private String senderName;
 
-    public EmailService(TemplateEngine templateEngine, ObjectMapper objectMapper) {
+    public EmailService(TemplateEngine templateEngine) {
         this.templateEngine = templateEngine;
-        this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
