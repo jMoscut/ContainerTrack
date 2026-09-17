@@ -56,6 +56,6 @@ jobs:
       - name: Instalar Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy a Railway
-        run: railway up --service containertrack-backend --ci
+        run: railway up --service ContainerTrack --ci
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
