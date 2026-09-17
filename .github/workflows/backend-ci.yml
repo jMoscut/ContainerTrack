@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Deploy a Railway
-        uses: bervProject/railway-deploy@v1.0.0
+        uses: bervProject/railway-deploy@v0.1.2-beta
         with:
           railway_token: ${{ secrets.RAILWAY_TOKEN }}
           service: containertrack-backend
