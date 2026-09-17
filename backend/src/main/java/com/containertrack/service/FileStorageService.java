@@ -92,6 +92,10 @@ public class FileStorageService {
         throw new FileUploadFailedException("Failed to upload file to R2 after retries: " + key, lastError);
     }
 
+    public void deleteFile(String r2Key) {
+        amazonS3.deleteObject(bucketName, r2Key);
+    }
+
     public String generatePresignedUrl(String r2Key, Duration expiry) {
         Date expiration = new Date(System.currentTimeMillis() + expiry.toMillis());
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, r2Key)

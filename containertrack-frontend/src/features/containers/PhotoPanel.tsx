@@ -67,20 +67,20 @@ export function PhotoPanel({ containerId, readOnly, canInvalidate, onPhotoCountC
     onError: () => toast.error(t("photos.uploadError")),
   });
 
-  const invalidateMutation = useMutation({
+  const removeMutation = useMutation({
     mutationFn: ({ photoId, reason }: { photoId: string; reason: string }) =>
-      containersApi.invalidatePhoto(containerId, photoId, reason),
+      containersApi.removePhoto(containerId, photoId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["containerPhotos", containerId] });
-      toast.success(t("photos.invalidateSuccess"));
+      toast.success(t("photos.deleteSuccess"));
     },
-    onError: () => toast.error(t("photos.invalidateError")),
+    onError: () => toast.error(t("photos.deleteError")),
   });
 
-  const handleInvalidate = (photoId: string) => {
-    const reason = window.prompt(t("photos.invalidateReasonPrompt"));
+  const handleRemove = (photoId: string) => {
+    const reason = window.prompt(t("photos.deleteReasonPrompt"));
     if (!reason || !reason.trim()) return;
-    invalidateMutation.mutate({ photoId, reason: reason.trim() });
+    removeMutation.mutate({ photoId, reason: reason.trim() });
   };
 
   const handleFileChange = (fileList: FileList | null) => {
@@ -238,8 +238,8 @@ export function PhotoPanel({ containerId, readOnly, canInvalidate, onPhotoCountC
                 {canInvalidate && photo.isValid && (
                   <button
                     type="button"
-                    onClick={() => handleInvalidate(photo.photoId)}
-                    disabled={invalidateMutation.isPending}
+                    onClick={() => handleRemove(photo.photoId)}
+                    disabled={removeMutation.isPending}
                     aria-label={t("photos.invalidate")}
                     className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-[#C0392B] shadow-subtle hover:bg-white disabled:opacity-50"
                   >

@@ -48,9 +48,9 @@ export const containersApi = {
   listPhotos: (id: string) =>
     axiosInstance.get<ContainerPhoto[]>(`/api/containers/${id}/photos`).then((r) => r.data),
 
-  invalidatePhoto: (id: string, photoId: string, invalidationReason: string) =>
+  removePhoto: (id: string, photoId: string, invalidationReason: string) =>
     axiosInstance
-      .patch<void>(`/api/containers/${id}/photos/${photoId}/invalidate`, { invalidationReason })
+      .delete<void>(`/api/containers/${id}/photos/${photoId}`, { data: { invalidationReason } })
       .then((r) => r.data),
 
   discharge: (id: string, payload: DischargeRequest) =>

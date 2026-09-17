@@ -106,8 +106,14 @@ public class ContainerPhotoService {
                 .toList();
     }
 
+    /**
+     * Before the container is DISCHARGED, a removed photo is genuinely deleted (R2 object +
+     * DB row) — it was a mistake during upload, no reason to keep it around. Once DISCHARGED,
+     * the photo set is the final evidentiary record, so removal only soft-invalidates it
+     * (kept visible, marked with a reason) instead of erasing it.
+     */
     @Transactional
-    public void invalidatePhoto(Long containerId, Long photoId, String reason, Long performedBy, Role performerRole) {
+    public void removePhoto(Long containerId, Long photoId, String reason, Long performedBy, Role performerRole) {
         Container container = findContainer(containerId);
         if (performerRole == Role.WAREHOUSE
                 && (container.getWarehouseAssigneeId() == null
@@ -119,11 +125,19 @@ public class ContainerPhotoService {
         if (!photo.getContainerId().equals(containerId)) {
             throw new NotFoundException("Foto no encontrada para este contenedor.");
         }
-        photo.setIsValid(false);
-        photo.setInvalidationReason(reason);
-        containerPhotoRepository.save(photo);
-        auditService.log("CONTAINER", containerId, AuditAction.UPDATE, "photo_invalidated",
-                null, "photoId=" + photoId + " reason=" + reason, performedBy);
+
+        if (container.getStatus() == ContainerStatus.DISCHARGED) {
+            photo.setIsValid(false);
+            photo.setInvalidationReason(reason);
+            containerPhotoRepository.save(photo);
+            auditService.log("CONTAINER", containerId, AuditAction.UPDATE, "photo_invalidated",
+                    null, "photoId=" + photoId + " reason=" + reason, performedBy);
+        } else {
+            fileStorageService.deleteFile(photo.getR2Key());
+            containerPhotoRepository.delete(photo);
+            auditService.log("CONTAINER", containerId, AuditAction.UPDATE, "photo_deleted",
+                    photo.getOriginalFilename(), "reason=" + reason, performedBy);
+        }
     }
 
     private Container findContainer(Long id) {

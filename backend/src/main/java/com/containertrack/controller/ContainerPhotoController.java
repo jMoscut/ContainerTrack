@@ -38,12 +38,12 @@ public class ContainerPhotoController {
         return ResponseEntity.ok(containerPhotoService.listPhotos(id));
     }
 
-    @PatchMapping("/photos/{photoId}/invalidate")
+    @DeleteMapping("/photos/{photoId}")
     @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
-    public ResponseEntity<Void> invalidatePhoto(@PathVariable Long id, @PathVariable Long photoId,
-                                                 @Valid @RequestBody InvalidatePhotoRequest request,
-                                                 @AuthenticationPrincipal UserPrincipal principal) {
-        containerPhotoService.invalidatePhoto(id, photoId, request.getInvalidationReason(), principal.getId(),
+    public ResponseEntity<Void> removePhoto(@PathVariable Long id, @PathVariable Long photoId,
+                                             @Valid @RequestBody InvalidatePhotoRequest request,
+                                             @AuthenticationPrincipal UserPrincipal principal) {
+        containerPhotoService.removePhoto(id, photoId, request.getInvalidationReason(), principal.getId(),
                 principal.getRole());
         return ResponseEntity.noContent().build();
     }
