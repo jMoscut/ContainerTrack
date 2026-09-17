@@ -6,6 +6,7 @@ import com.containertrack.entity.AuditAction;
 import com.containertrack.entity.Container;
 import com.containertrack.entity.ContainerPhoto;
 import com.containertrack.entity.ContainerStatus;
+import com.containertrack.entity.Role;
 import com.containertrack.exception.BadRequestException;
 import com.containertrack.exception.ForbiddenException;
 import com.containertrack.exception.NotFoundException;
@@ -106,7 +107,13 @@ public class ContainerPhotoService {
     }
 
     @Transactional
-    public void invalidatePhoto(Long containerId, Long photoId, String reason, Long performedBy) {
+    public void invalidatePhoto(Long containerId, Long photoId, String reason, Long performedBy, Role performerRole) {
+        Container container = findContainer(containerId);
+        if (performerRole == Role.WAREHOUSE
+                && (container.getWarehouseAssigneeId() == null
+                        || !container.getWarehouseAssigneeId().equals(performedBy))) {
+            throw new ForbiddenException("NOT_ASSIGNED", "No estás asignado como responsable de bodega de este contenedor.");
+        }
         ContainerPhoto photo = containerPhotoRepository.findById(photoId)
                 .orElseThrow(() -> new NotFoundException("Foto no encontrada."));
         if (!photo.getContainerId().equals(containerId)) {

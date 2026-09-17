@@ -39,11 +39,12 @@ public class ContainerPhotoController {
     }
 
     @PatchMapping("/photos/{photoId}/invalidate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public ResponseEntity<Void> invalidatePhoto(@PathVariable Long id, @PathVariable Long photoId,
                                                  @Valid @RequestBody InvalidatePhotoRequest request,
                                                  @AuthenticationPrincipal UserPrincipal principal) {
-        containerPhotoService.invalidatePhoto(id, photoId, request.getInvalidationReason(), principal.getId());
+        containerPhotoService.invalidatePhoto(id, photoId, request.getInvalidationReason(), principal.getId(),
+                principal.getRole());
         return ResponseEntity.noContent().build();
     }
 

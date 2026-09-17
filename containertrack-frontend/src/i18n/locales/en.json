@@ -232,7 +232,19 @@
     "uploadFailed_other": "{{count}} photos failed: {{names}}",
     "uploadError": "Could not upload photos",
     "maxFilesError": "You can upload a maximum of {{max}} files at a time.",
-    "invalidFileError": "File \"{{name}}\" is not valid. Only images up to 10MB are allowed."
+    "invalidFileError": "File \"{{name}}\" is not valid. Only images up to 10MB are allowed.",
+    "invalidate": "Discard",
+    "invalidateReasonPrompt": "Reason for discarding this photo:",
+    "invalidateSuccess": "Photo discarded successfully",
+    "invalidateError": "Could not discard photo",
+    "invalidatedBadge": "Discarded",
+    "invalidatedReason": "Reason: {{reason}}",
+    "pendingReview": "{{count}} photo ready to upload. Review before confirming.",
+    "pendingReview_other": "{{count}} photos ready to upload. Review before confirming.",
+    "removePending": "Remove",
+    "cancelPending": "Cancel",
+    "confirmUpload": "Upload {{count}} photo",
+    "confirmUpload_other": "Upload {{count}} photos"
   },
   "editDate": {
     "title": "Edit date",

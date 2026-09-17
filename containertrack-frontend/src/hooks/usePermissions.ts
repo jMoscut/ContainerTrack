@@ -82,6 +82,16 @@ export function usePermissions() {
 
     const canGenerateReports = role === "ADMIN" || role === "OPERATOR";
 
+    // Discarding a photo (mark invalid + reason) is allowed for ADMIN always, or the
+    // specific WAREHOUSE user assigned to this container — mirrors backend authorization.
+    const canInvalidatePhotos = (container: AssignableContainer): boolean => {
+      if (role === "ADMIN") return true;
+      if (role === "WAREHOUSE") {
+        return container.warehouseAssigneeId != null && String(container.warehouseAssigneeId) === userId;
+      }
+      return false;
+    };
+
     const canTransition = (container: AssignableContainer): boolean => {
       if (!role) return false;
       if (!isAssigned(container)) return false;
@@ -107,6 +117,7 @@ export function usePermissions() {
       canEditLandCarrier,
       canAssignWarehouse,
       canGenerateReports,
+      canInvalidatePhotos,
       canTransition,
       visibleStatuses,
     };

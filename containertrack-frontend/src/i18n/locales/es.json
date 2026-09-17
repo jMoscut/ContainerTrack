@@ -232,7 +232,19 @@
     "uploadFailed_other": "{{count}} fotos fallaron: {{names}}",
     "uploadError": "No se pudieron subir las fotos",
     "maxFilesError": "Puedes subir un máximo de {{max}} archivos a la vez.",
-    "invalidFileError": "El archivo \"{{name}}\" no es válido. Solo se permiten imágenes de hasta 10MB."
+    "invalidFileError": "El archivo \"{{name}}\" no es válido. Solo se permiten imágenes de hasta 10MB.",
+    "invalidate": "Descartar",
+    "invalidateReasonPrompt": "Motivo para descartar esta foto:",
+    "invalidateSuccess": "Foto descartada correctamente",
+    "invalidateError": "No se pudo descartar la foto",
+    "invalidatedBadge": "Descartada",
+    "invalidatedReason": "Motivo: {{reason}}",
+    "pendingReview": "{{count}} foto lista para subir. Revisa antes de confirmar.",
+    "pendingReview_other": "{{count}} fotos listas para subir. Revisa antes de confirmar.",
+    "removePending": "Quitar",
+    "cancelPending": "Cancelar",
+    "confirmUpload": "Subir {{count}} foto",
+    "confirmUpload_other": "Subir {{count}} fotos"
   },
   "editDate": {
     "title": "Editar fecha",

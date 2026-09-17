@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { UploadCloud, Eye, ImageOff } from "lucide-react";
+import { UploadCloud, Eye, ImageOff, Trash2, X } from "lucide-react";
 import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 import { Spinner } from "../../components/shared/Spinner";
 import { containersApi } from "../../api/containersApi";
 import { formatDateTime } from "../../utils/dateFormat";
@@ -12,17 +13,24 @@ const MAX_FILES = 20;
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_MIME_PREFIX = "image/";
 
+interface PendingFile {
+  file: File;
+  previewUrl: string;
+}
+
 interface PhotoPanelProps {
   containerId: string;
   readOnly: boolean;
+  canInvalidate: boolean;
   onPhotoCountChange?: (count: number) => void;
 }
 
-export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoPanelProps) {
+export function PhotoPanel({ containerId, readOnly, canInvalidate, onPhotoCountChange }: PhotoPanelProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
 
   const { data: photos, isLoading } = useQuery({
     queryKey: ["containerPhotos", containerId],
@@ -32,6 +40,13 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
   useEffect(() => {
     if (photos) onPhotoCountChange?.(photos.length);
   }, [photos, onPhotoCountChange]);
+
+  // Revoke object URLs on unmount / when the pending selection changes to avoid leaks.
+  useEffect(() => {
+    return () => {
+      pendingFiles.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    };
+  }, [pendingFiles]);
 
   const uploadMutation = useMutation({
     mutationFn: (files: File[]) => containersApi.uploadPhotos(containerId, files),
@@ -52,6 +67,22 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
     onError: () => toast.error(t("photos.uploadError")),
   });
 
+  const invalidateMutation = useMutation({
+    mutationFn: ({ photoId, reason }: { photoId: string; reason: string }) =>
+      containersApi.invalidatePhoto(containerId, photoId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["containerPhotos", containerId] });
+      toast.success(t("photos.invalidateSuccess"));
+    },
+    onError: () => toast.error(t("photos.invalidateError")),
+  });
+
+  const handleInvalidate = (photoId: string) => {
+    const reason = window.prompt(t("photos.invalidateReasonPrompt"));
+    if (!reason || !reason.trim()) return;
+    invalidateMutation.mutate({ photoId, reason: reason.trim() });
+  };
+
   const handleFileChange = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
@@ -67,14 +98,35 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
       return;
     }
 
-    uploadMutation.mutate(files);
+    setPendingFiles(files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })));
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removePendingFile = (previewUrl: string) => {
+    setPendingFiles((prev) => {
+      const target = prev.find((p) => p.previewUrl === previewUrl);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((p) => p.previewUrl !== previewUrl);
+    });
+  };
+
+  const cancelPending = () => {
+    pendingFiles.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    setPendingFiles([]);
+  };
+
+  const confirmUpload = () => {
+    if (pendingFiles.length === 0) return;
+    uploadMutation.mutate(
+      pendingFiles.map((p) => p.file),
+      { onSuccess: () => setPendingFiles([]) },
+    );
   };
 
   return (
     <Card title={t("photos.title")}>
       <div className="flex flex-col gap-4">
-        {!readOnly && (
+        {!readOnly && pendingFiles.length === 0 && (
           <div>
             <input
               ref={fileInputRef}
@@ -106,9 +158,48 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
           </div>
         )}
 
+        {pendingFiles.length > 0 && (
+          <div className="flex flex-col gap-3 rounded-lg border border-sage bg-sage/10 p-3">
+            <p className="text-sm font-semibold text-dark-brown">
+              {t("photos.pendingReview", { count: pendingFiles.length })}
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {pendingFiles.map((p) => (
+                <div
+                  key={p.previewUrl}
+                  className="relative flex h-24 w-full overflow-hidden rounded-md border border-sage bg-white"
+                >
+                  <img src={p.previewUrl} alt={p.file.name} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePendingFile(p.previewUrl)}
+                    disabled={uploadMutation.isPending}
+                    aria-label={t("photos.removePending")}
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-[#C0392B] shadow-subtle hover:bg-white disabled:opacity-50"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={cancelPending} disabled={uploadMutation.isPending}>
+                {t("photos.cancelPending")}
+              </Button>
+              <Button onClick={confirmUpload} disabled={uploadMutation.isPending}>
+                {uploadMutation.isPending ? (
+                  <Spinner />
+                ) : (
+                  t("photos.confirmUpload", { count: pendingFiles.length })
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {isLoading && <Spinner />}
 
-        {photos && photos.length === 0 && (
+        {photos && photos.length === 0 && pendingFiles.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-6 text-center text-gray-500">
             <ImageOff size={22} className="text-gray-300" />
             <p className="text-sm">{t("photos.empty")}</p>
@@ -118,14 +209,18 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
         {photos && photos.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {photos.map((photo) => (
-              <a
+              <div
                 key={photo.photoId}
-                href={photo.presignedUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="group relative flex flex-col overflow-hidden rounded-md border border-sage shadow-subtle transition-shadow hover:shadow-card"
+                className={`group relative flex flex-col overflow-hidden rounded-md border shadow-subtle transition-shadow hover:shadow-card ${
+                  photo.isValid ? "border-sage" : "border-[#C0392B]/50 opacity-60"
+                }`}
               >
-                <div className="relative h-24 w-full overflow-hidden bg-sage/20">
+                <a
+                  href={photo.presignedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="relative h-24 w-full overflow-hidden bg-sage/20"
+                >
                   <img
                     src={photo.presignedUrl}
                     alt={photo.originalFilename}
@@ -139,12 +234,26 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
                   <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-primary shadow-subtle sm:hidden">
                     <Eye size={13} />
                   </span>
-                </div>
+                </a>
+                {canInvalidate && photo.isValid && (
+                  <button
+                    type="button"
+                    onClick={() => handleInvalidate(photo.photoId)}
+                    disabled={invalidateMutation.isPending}
+                    aria-label={t("photos.invalidate")}
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-[#C0392B] shadow-subtle hover:bg-white disabled:opacity-50"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
                 <div className="px-2 py-1 text-[11px] text-gray-500">
                   <p className="truncate">{photo.uploadedByName ?? t("containerDetail.notAvailable")}</p>
                   <p>{formatDateTime(photo.uploadedAt)}</p>
+                  {!photo.isValid && (
+                    <p className="font-semibold text-[#C0392B]">{t("photos.invalidatedBadge")}</p>
+                  )}
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         )}

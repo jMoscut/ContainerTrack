@@ -33,7 +33,8 @@ export function ContainerDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
-  const { canEditContainer, canEditLandCarrier, canAssignWarehouse, canTransition, isRole } = usePermissions();
+  const { canEditContainer, canEditLandCarrier, canAssignWarehouse, canTransition, canInvalidatePhotos, isRole } =
+    usePermissions();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isTransitionOpen, setIsTransitionOpen] = useState(false);
@@ -541,7 +542,12 @@ export function ContainerDetailPage() {
 
       {showPhotoPanel && (
         <div className="flex flex-col gap-2">
-          <PhotoPanel containerId={container.id} readOnly={isReadOnly} onPhotoCountChange={setPhotoCount} />
+          <PhotoPanel
+            containerId={container.id}
+            readOnly={isReadOnly}
+            onPhotoCountChange={setPhotoCount}
+            canInvalidate={canInvalidatePhotos(container)}
+          />
           {showDischargeButton && (
             <div className="flex justify-end">
               <Button disabled={photoCount === 0} onClick={() => setIsDischargeOpen(true)}>
