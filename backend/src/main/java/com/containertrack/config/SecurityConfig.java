@@ -73,7 +73,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/health", "/actuator/health", "/ws/**").permitAll()
+                        // /api/auth/refresh MUST be public: it exists specifically for the case where
+                        // there is no valid access token (expired, or wiped on page reload since it
+                        // lives only in memory) — requiring auth here made every hard refresh log the
+                        // user out, since there was nothing valid to authenticate the request itself.
+                        .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/health", "/actuator/health", "/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .headers(headers -> headers

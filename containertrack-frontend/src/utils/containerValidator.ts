@@ -7,7 +7,9 @@
  */
 export const CONTAINER_NUMBER_REGEX = /^[A-Z]{3}[UJZ][0-9]{6}[0-9]{1}$/;
 
-export const CONTAINER_NUMBER_EXAMPLE = "MSCU1234565";
+// Verified against the real ISO 6346 check-digit algorithm (not just format) —
+// safe to use as-is in a test container without the backend rejecting it.
+export const CONTAINER_NUMBER_EXAMPLE = "MSCU1234566";
 
 export function isValidContainerNumberFormat(value: string): boolean {
   return CONTAINER_NUMBER_REGEX.test(value);

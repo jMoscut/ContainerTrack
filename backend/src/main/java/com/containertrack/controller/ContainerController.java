@@ -1,5 +1,6 @@
 package com.containertrack.controller;
 
+import com.containertrack.dto.request.AssignWarehouseRequest;
 import com.containertrack.dto.request.CreateContainerRequest;
 import com.containertrack.dto.request.TransitionRequest;
 import com.containertrack.dto.request.UpdateContainerRequest;
@@ -55,7 +56,15 @@ public class ContainerController {
     @PatchMapping("/{id}")
     public ResponseEntity<ContainerDTO> update(@PathVariable Long id, @RequestBody UpdateContainerRequest request,
                                                 @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(containerService.update(id, request, principal.getId()));
+        return ResponseEntity.ok(containerService.update(id, request, principal.getId(), principal.getRole()));
+    }
+
+    @PatchMapping("/{id}/assign-warehouse")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    public ResponseEntity<ContainerDTO> assignWarehouse(@PathVariable Long id, @Valid @RequestBody AssignWarehouseRequest request,
+                                                          @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(containerService.assignWarehouse(id, request.getWarehouseAssigneeId(),
+                principal.getId(), principal.getRole()));
     }
 
     @PostMapping("/{id}/transition")

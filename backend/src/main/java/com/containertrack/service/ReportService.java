@@ -25,7 +25,9 @@ import java.io.IOException;
 import java.net.URL;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,6 +40,13 @@ public class ReportService {
     private static final DeviceRgb HEADER_COLOR = new DeviceRgb(0, 79, 46); // #004F2E
     private static final DeviceRgb DELAY_COLOR = new DeviceRgb(250, 219, 213); // #FADBD8
     private static final int MAX_CONSOLIDATED_ROWS = 500;
+    private static final ZoneId GUATEMALA_ZONE = ZoneId.of("America/Guatemala");
+    private static final DateTimeFormatter GUATEMALA_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+    private static String formatGuatemala(OffsetDateTime dateTime) {
+        if (dateTime == null) return "-";
+        return dateTime.atZoneSameInstant(GUATEMALA_ZONE).format(GUATEMALA_FORMAT);
+    }
 
     private final ContainerRepository containerRepository;
     private final ShippingCompanyRepository shippingCompanyRepository;
@@ -93,7 +102,7 @@ public class ReportService {
                         byte[] imgBytes = downloadBytes(url);
                         Image image = new Image(ImageDataFactory.create(imgBytes)).setAutoScale(true);
                         Cell cell = new Cell().add(image)
-                                .add(new Paragraph("Subida: " + photo.getUploadedAt()).setFontSize(8));
+                                .add(new Paragraph("Subida: " + formatGuatemala(photo.getUploadedAt())).setFontSize(8));
                         photoGrid.addCell(cell);
                     } catch (Exception e) {
                         log.warn("Skipping photo {} in report (could not download): {}", photo.getId(), e.getMessage());
@@ -111,7 +120,7 @@ public class ReportService {
                 history.addHeaderCell(cell("Valor Nuevo", true));
                 history.addHeaderCell(cell("Usuario", true));
                 for (ContainerFieldChange change : changes) {
-                    history.addCell(cell(String.valueOf(change.getUpdatedAt()), false));
+                    history.addCell(cell(formatGuatemala(change.getUpdatedAt()), false));
                     history.addCell(cell(change.getFieldName(), false));
                     history.addCell(cell(change.getOldValue() != null ? change.getOldValue() : "-", false));
                     history.addCell(cell(change.getNewValue() != null ? change.getNewValue() : "-", false));
@@ -128,9 +137,13 @@ public class ReportService {
     }
 
     public byte[] generateConsolidatedReport(ConsolidatedReportFilter filter, User requestedBy) throws IOException {
+        if (filter.getDateFrom() != null && filter.getDateTo() != null && filter.getDateTo().isBefore(filter.getDateFrom())) {
+            throw new BadRequestException("INVALID_DATE_RANGE", "La fecha \"hasta\" debe ser posterior o igual a \"desde\".");
+        }
         List<Container> containers = containerRepository.findAll().stream()
                 .filter(c -> filter.getStatus() == null || c.getStatus() == filter.getStatus())
                 .filter(c -> filter.getShippingCompanyId() == null || filter.getShippingCompanyId().equals(c.getShippingCompanyId()))
+                .filter(c -> filter.getOperatorId() == null || filter.getOperatorId().equals(c.getResponsibleOperatorId()))
                 .filter(c -> filter.getDateFrom() == null || !c.getCreatedAt().isBefore(filter.getDateFrom()))
                 .filter(c -> filter.getDateTo() == null || !c.getCreatedAt().isAfter(filter.getDateTo()))
                 .collect(Collectors.toList());
@@ -162,8 +175,8 @@ public class ReportService {
                 table.addCell(cell(c.getContainerNumber(), false));
                 table.addCell(cell(companyNames.getOrDefault(c.getShippingCompanyId(), "-"), false));
                 table.addCell(cell(c.getStatus().name(), false));
-                table.addCell(cell(String.valueOf(c.getCreatedAt()), false));
-                table.addCell(cell(c.getDischargeEndAt() != null ? String.valueOf(c.getDischargeEndAt()) : "-", false));
+                table.addCell(cell(formatGuatemala(c.getCreatedAt()), false));
+                table.addCell(cell(formatGuatemala(c.getDischargeEndAt()), false));
                 long days = daysInTransit(c);
                 table.addCell(cell(String.valueOf(days), false));
             }
@@ -211,7 +224,7 @@ public class ReportService {
     }
 
     private void addFooter(Document document, User requestedBy) {
-        document.add(new Paragraph("Generado el " + OffsetDateTime.now(ZoneOffset.UTC) +
+        document.add(new Paragraph("Generado el " + formatGuatemala(OffsetDateTime.now(ZoneOffset.UTC)) +
                 (requestedBy != null ? " por " + requestedBy.getFullName() : ""))
                 .setFontSize(8).setMarginTop(24));
     }
@@ -233,8 +246,8 @@ public class ReportService {
             diff = String.valueOf(ChronoUnit.DAYS.between(estimated, actual));
         }
         Cell stageCell = cell(stage, false);
-        Cell estCell = cell(estimated != null ? String.valueOf(estimated) : "-", false);
-        Cell actCell = cell(actual != null ? String.valueOf(actual) : "-", false);
+        Cell estCell = cell(formatGuatemala(estimated), false);
+        Cell actCell = cell(formatGuatemala(actual), false);
         Cell diffCell = cell(diff, false);
         if (Boolean.TRUE.equals(delay)) {
             stageCell.setBackgroundColor(DELAY_COLOR);

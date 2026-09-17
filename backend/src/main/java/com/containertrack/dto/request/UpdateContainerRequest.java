@@ -12,7 +12,9 @@ import java.time.OffsetDateTime;
  */
 @Data
 public class UpdateContainerRequest {
+    private String blNumber;
     private Long shippingCompanyId;
+    private Long landCarrierId;
     private String originPort;
     private String destinationPort;
     private String cargoDescription;

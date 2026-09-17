@@ -29,7 +29,9 @@
   --color-disabled: #9E9E9E;
 
   /* Sombras */
+  --shadow-subtle: 0 1px 3px rgba(0, 79, 46, 0.06), 0 1px 2px rgba(0, 79, 46, 0.06);
   --shadow-card: 0 2px 8px rgba(0, 79, 46, 0.10);
+  --shadow-elevated: 0 12px 28px rgba(0, 79, 46, 0.16), 0 4px 10px rgba(0, 79, 46, 0.08);
   --shadow-modal: 0 8px 32px rgba(0, 79, 46, 0.18);
 
   /* Bordes redondeados */
@@ -40,6 +42,15 @@
 
   /* Espaciado base */
   --spacing-unit: 8px;
+
+  /* Gradientes de marca */
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  --gradient-hero: radial-gradient(ellipse at top left, rgba(0, 104, 80, 0.35) 0%, transparent 55%),
+    linear-gradient(160deg, var(--color-primary) 0%, #003a22 55%, #002417 100%);
+  --gradient-surface: linear-gradient(160deg, #fdfdd0 0%, #f3f2c2 45%, #c8d5c0 130%);
+
+  /* Transiciones */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -47,4 +58,81 @@ body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utility classes for the brand gradients defined above, usable directly as
+   className="bg-gradient-primary" etc. without extending the Tailwind theme. */
+.bg-gradient-primary {
+  background-image: var(--gradient-primary);
+}
+
+.bg-gradient-hero {
+  background-image: var(--gradient-hero);
+}
+
+.bg-gradient-surface {
+  background-image: var(--gradient-surface);
+}
+
+/* Fine, barely-visible noise texture — pure CSS, no image asset. Layer this
+   on top of dark/hero surfaces for a subtle premium grain. */
+.bg-noise {
+  position: relative;
+  isolation: isolate;
+}
+
+.bg-noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.9) 0.6px, transparent 0.6px);
+  background-size: 3px 3px;
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes overlay-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-modal-pop {
+  animation: modal-pop 200ms var(--ease-standard);
+}
+
+.animate-overlay-fade {
+  animation: overlay-fade 180ms var(--ease-standard);
+}
+
+@keyframes brand-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.94);
+  }
+}
+
+.animate-brand-pulse {
+  animation: brand-pulse 1.6s ease-in-out infinite;
 }

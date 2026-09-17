@@ -17,5 +17,7 @@ public class PhotoDTO {
     private String presignedUrl;
     private String originalFilename;
     private Boolean isValid;
+    private Long uploadedById;
+    private String uploadedByName;
     private OffsetDateTime uploadedAt;
 }

@@ -11,6 +11,7 @@ import com.containertrack.exception.ForbiddenException;
 import com.containertrack.exception.NotFoundException;
 import com.containertrack.repository.ContainerPhotoRepository;
 import com.containertrack.repository.ContainerRepository;
+import com.containertrack.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class ContainerPhotoService {
     private final ContainerPhotoRepository containerPhotoRepository;
     private final FileStorageService fileStorageService;
     private final AuditService auditService;
+    private final UserRepository userRepository;
 
     @Transactional
     public PhotoUploadResultDTO uploadPhotos(Long containerId, List<MultipartFile> files, Long uploadedBy) {
@@ -68,6 +70,8 @@ public class ContainerPhotoService {
                         .presignedUrl(fileStorageService.generatePresignedUrl(photo.getR2Key(), PRESIGN_TTL))
                         .originalFilename(photo.getOriginalFilename())
                         .isValid(true)
+                        .uploadedById(uploadedBy)
+                        .uploadedByName(userRepository.findById(uploadedBy).map(u -> u.getFullName()).orElse(null))
                         .uploadedAt(photo.getUploadedAt())
                         .build());
             } catch (Exception e) {
@@ -94,6 +98,8 @@ public class ContainerPhotoService {
                         .presignedUrl(fileStorageService.generatePresignedUrl(p.getR2Key(), PRESIGN_TTL))
                         .originalFilename(p.getOriginalFilename())
                         .isValid(p.getIsValid())
+                        .uploadedById(p.getUploadedBy())
+                        .uploadedByName(userRepository.findById(p.getUploadedBy()).map(u -> u.getFullName()).orElse(null))
                         .uploadedAt(p.getUploadedAt())
                         .build())
                 .toList();

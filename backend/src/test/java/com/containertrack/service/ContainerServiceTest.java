@@ -13,6 +13,7 @@ import com.containertrack.repository.AuditLogRepository;
 import com.containertrack.repository.ContainerFieldChangeRepository;
 import com.containertrack.repository.ContainerPhotoRepository;
 import com.containertrack.repository.ContainerRepository;
+import com.containertrack.repository.NotificationLogRepository;
 import com.containertrack.repository.ShippingCompanyRepository;
 import com.containertrack.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +44,8 @@ class ContainerServiceTest {
     @Mock
     private ShippingCompanyRepository shippingCompanyRepository;
     @Mock
+    private com.containertrack.repository.LandCarrierRepository landCarrierRepository;
+    @Mock
     private UserRepository userRepository;
     @Mock
     private ContainerPhotoRepository containerPhotoRepository;
@@ -50,6 +53,8 @@ class ContainerServiceTest {
     private ContainerFieldChangeRepository fieldChangeRepository;
     @Mock
     private AuditLogRepository auditLogRepository;
+    @Mock
+    private NotificationLogRepository notificationLogRepository;
     @Mock
     private ContainerMapper containerMapper;
     @Mock
@@ -68,9 +73,9 @@ class ContainerServiceTest {
 
     @BeforeEach
     void setUp() {
-        containerService = new ContainerService(containerRepository, shippingCompanyRepository, userRepository,
-                containerPhotoRepository, fieldChangeRepository, auditLogRepository, containerMapper, auditService,
-                stateMachine, realtimeNotifier, notificationService);
+        containerService = new ContainerService(containerRepository, shippingCompanyRepository, landCarrierRepository,
+                userRepository, containerPhotoRepository, fieldChangeRepository, auditLogRepository, notificationLogRepository,
+                containerMapper, auditService, stateMachine, realtimeNotifier, notificationService);
 
         activeCompany = ShippingCompany.builder()
                 .id(10L)
@@ -97,6 +102,7 @@ class ContainerServiceTest {
     private CreateContainerRequest createRequest() {
         CreateContainerRequest request = new CreateContainerRequest();
         request.setContainerNumber("MSKU1234565");
+        request.setBlNumber("BL-TEST-1");
         request.setShippingCompanyId(10L);
         request.setOriginPort("Shanghai");
         request.setDestinationPort("Los Angeles");
@@ -156,7 +162,7 @@ class ContainerServiceTest {
         request.setTargetStatus(ContainerStatus.DEPARTED_ORIGIN);
         request.setActualDepartureDate(OffsetDateTime.now(ZoneOffset.UTC).minusHours(1));
 
-        ContainerDTO dto = containerService.transition(1L, request, 1L, Role.OPERATOR);
+        ContainerDTO dto = containerService.transition(1L, request, 5L, Role.OPERATOR);
 
         assertEquals("DEPARTED_ORIGIN", dto.getStatus());
         assertEquals(ContainerStatus.DEPARTED_ORIGIN, container.getStatus());
@@ -179,7 +185,7 @@ class ContainerServiceTest {
         request.setActualArrivalPort(OffsetDateTime.now(ZoneOffset.UTC));
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> containerService.transition(1L, request, 1L, Role.OPERATOR));
+                () -> containerService.transition(1L, request, 5L, Role.OPERATOR));
 
         assertEquals("INVALID_TRANSITION", ex.getCode());
     }
@@ -200,7 +206,7 @@ class ContainerServiceTest {
         request.setTargetStatus(ContainerStatus.DISCHARGED);
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> containerService.transition(1L, request, 1L, Role.OPERATOR));
+                () -> containerService.transition(1L, request, 5L, Role.OPERATOR));
 
         assertEquals("DISCHARGE_VIA_DEDICATED_ENDPOINT", ex.getCode());
     }

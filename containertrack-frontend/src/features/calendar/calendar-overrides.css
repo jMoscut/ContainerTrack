@@ -1,0 +1,202 @@
+/*
+ * Brand reskin for react-big-calendar. The library ships very plain default
+ * styles (react-big-calendar/lib/css/react-big-calendar.css, imported
+ * alongside this file); these overrides restyle its stable class names
+ * toward the ContainerTrack palette without touching its behavior/markup.
+ */
+
+.rbc-calendar {
+  font-family: "Inter", sans-serif;
+  color: #2e2417;
+}
+
+/* Toolbar (prev/next/today + view switcher) restyled to look like the app's
+   Button component instead of the library's plain bordered buttons. */
+.rbc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rbc-toolbar .rbc-toolbar-label {
+  font-family: "Lora", serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #004f2e;
+  order: -1;
+  flex-basis: 100%;
+  text-align: left;
+}
+
+@media (min-width: 640px) {
+  .rbc-toolbar .rbc-toolbar-label {
+    order: 0;
+    flex-basis: auto;
+    text-align: center;
+  }
+}
+
+.rbc-toolbar .rbc-btn-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.rbc-toolbar button {
+  border: 1px solid #c8d5c0;
+  background-color: #ffffff;
+  color: #2e2417;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+  min-height: 38px;
+}
+
+.rbc-toolbar button:hover {
+  background-color: rgba(0, 79, 46, 0.06);
+  border-color: #004f2e;
+  color: #004f2e;
+}
+
+.rbc-toolbar button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.4);
+}
+
+.rbc-toolbar button.rbc-active,
+.rbc-toolbar button.rbc-active:hover {
+  background-color: #004f2e;
+  border-color: #004f2e;
+  color: #fdfdd0;
+}
+
+/* Header row (day names) */
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view {
+  border-color: #c8d5c0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rbc-header {
+  padding: 8px 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #004f2e;
+  background-color: rgba(200, 213, 192, 0.35);
+  border-color: #c8d5c0 !important;
+}
+
+.rbc-month-row,
+.rbc-day-bg,
+.rbc-time-content,
+.rbc-time-header-content,
+.rbc-timeslot-group {
+  border-color: #e5e7d9 !important;
+}
+
+.rbc-off-range-bg {
+  background-color: rgba(200, 213, 192, 0.18);
+}
+
+.rbc-off-range {
+  color: #b8b8a8;
+}
+
+/* Today: soft accent ring instead of the library's flat yellow fill. */
+.rbc-today {
+  background-color: rgba(212, 175, 55, 0.12);
+  box-shadow: inset 0 0 0 1.5px rgba(212, 175, 55, 0.6);
+}
+
+.rbc-date-cell {
+  padding: 4px 6px;
+  font-size: 0.8125rem;
+}
+
+.rbc-date-cell.rbc-now {
+  font-weight: 700;
+  color: #004f2e;
+}
+
+/* Events: keep the estimate(dashed)/actual(solid) distinction set inline via
+   eventPropGetter, but round + tidy the shared chrome here. */
+.rbc-event {
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 79, 46, 0.15);
+}
+
+.rbc-event:focus {
+  outline: none;
+}
+
+.rbc-event.rbc-selected {
+  box-shadow: 0 0 0 2px #d4af37, 0 1px 2px rgba(0, 79, 46, 0.15);
+}
+
+.rbc-event-label {
+  font-size: 0.6875rem;
+  opacity: 0.85;
+}
+
+.rbc-show-more {
+  color: #004f2e;
+  font-weight: 600;
+  font-size: 0.75rem;
+  background: transparent;
+}
+
+.rbc-row-segment .rbc-event-content {
+  font-size: 0.75rem;
+}
+
+/* Agenda view */
+.rbc-agenda-view table.rbc-agenda-table {
+  font-size: 0.8125rem;
+}
+
+.rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  background-color: rgba(200, 213, 192, 0.35);
+  color: #004f2e;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.03em;
+  border-color: #c8d5c0;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  border-color: #e5e7d9;
+  padding: 8px 10px;
+}
+
+.rbc-agenda-date-cell,
+.rbc-agenda-time-cell {
+  color: #6b7280;
+}
+
+/* Mobile: keep month view usable via horizontal scroll rather than
+   squishing every cell unreadably. */
+.calendar-scroll-wrap {
+  overflow-x: auto;
+}
+
+@media (max-width: 767px) {
+  .calendar-scroll-wrap .rbc-calendar {
+    min-width: 640px;
+  }
+}

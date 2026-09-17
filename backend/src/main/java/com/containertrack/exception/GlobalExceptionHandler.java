@@ -36,6 +36,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, Object>> handleApi(ApiException ex) {
+        log.info("API rejection [{}]: {}", ex.getCode(), ex.getMessage());
         return ResponseEntity.status(ex.getStatus()).body(body(ex.getCode(), ex.getMessage()));
     }
 
@@ -52,8 +53,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
-                .map(FieldError::getDefaultMessage)
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining("; "));
+        log.info("Validation rejection: {}", message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body("VALIDATION_ERROR", message));
     }
 

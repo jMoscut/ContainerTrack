@@ -18,14 +18,18 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
 public class ReportController {
 
     private final ReportService reportService;
     private final ContainerRepository containerRepository;
     private final UserRepository userRepository;
 
+    // Every role can download a single container's own PDF from its detail page
+    // (WAREHOUSE now sees every container in full). The consolidated/aggregate
+    // report below stays ADMIN/OPERATOR-only — that's the "Reportes" page WAREHOUSE
+    // doesn't get a nav link to.
     @GetMapping("/container/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> containerReport(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal)
             throws java.io.IOException {
         var container = containerRepository.findById(id).orElseThrow(() -> new NotFoundException("Contenedor no encontrado."));
@@ -44,6 +48,7 @@ public class ReportController {
     }
 
     @PostMapping("/consolidated")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
     public ResponseEntity<byte[]> consolidatedReport(@RequestBody ConsolidatedReportFilter filter,
                                                         @AuthenticationPrincipal UserPrincipal principal)
             throws java.io.IOException {

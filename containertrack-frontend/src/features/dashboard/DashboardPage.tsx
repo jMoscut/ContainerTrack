@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import toast from "react-hot-toast";
-import { Users, Ship, Anchor } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Users, Ship, Anchor, Clock3, AlertTriangle, History, ArrowUpRight } from "lucide-react";
 import { containersApi } from "../../api/containersApi";
 import { dashboardApi } from "../../api/dashboardApi";
 import { Card } from "../../components/ui/Card";
@@ -36,6 +37,7 @@ export function DashboardPage() {
 }
 
 function AdminOperatorDashboard() {
+  const { t } = useTranslation();
   const { role } = usePermissions();
   const isAdmin = role === "ADMIN";
   const queryClient = useQueryClient();
@@ -63,10 +65,10 @@ function AdminOperatorDashboard() {
       // Keep this low-noise: only the most dashboard-relevant event (a
       // completed discharge) surfaces a toast, the rest refetch silently.
       if (message.type === "DISCHARGED") {
-        toast(`Contenedor ${message.containerNumber} actualizado`);
+        toast(t("dashboard.containerUpdated", { number: message.containerNumber }));
       }
     },
-    [queryClient, isAdmin],
+    [queryClient, isAdmin, t],
   );
   useDashboardRealtime(onRealtimeEvent);
 
@@ -95,7 +97,7 @@ function AdminOperatorDashboard() {
   const perCompany = useMemo(() => {
     const counts = new Map<string, number>();
     for (const c of containers) {
-      counts.set(c.shippingCompany.name, (counts.get(c.shippingCompany.name) ?? 0) + 1);
+      counts.set(c.shippingCompanyName, (counts.get(c.shippingCompanyName) ?? 0) + 1);
     }
     return Array.from(counts.entries())
       .map(([label, value]) => ({ label, value }))
@@ -112,28 +114,34 @@ function AdminOperatorDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-display text-2xl font-bold text-primary">Dashboard</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-primary md:text-3xl">{t("dashboard.title")}</h1>
 
       {isAdmin && adminSummary && (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <AdminStatCard icon={Users} label="Usuarios activos" value={adminSummary.activeUsersCount} />
-            <AdminStatCard icon={Ship} label="Navieras activas" value={adminSummary.activeShippingCompaniesCount} />
-            <AdminStatCard icon={Anchor} label="Puertos activos" value={adminSummary.activePortsCount} />
+            <AdminStatCard icon={Users} label={t("dashboard.activeUsers")} value={adminSummary.activeUsersCount} />
+            <AdminStatCard
+              icon={Ship}
+              label={t("dashboard.activeShippingCompanies")}
+              value={adminSummary.activeShippingCompaniesCount}
+            />
+            <AdminStatCard icon={Anchor} label={t("dashboard.activePorts")} value={adminSummary.activePortsCount} />
           </div>
 
-          <Card title="Usuarios más activos (últimos 30 días)">
+          <Card title={t("dashboard.topActiveUsers")}>
             {adminSummary.topActiveUsers.length === 0 ? (
-              <p className="text-sm text-gray-500">Sin actividad registrada en los últimos 30 días.</p>
+              <p className="text-sm text-gray-500">{t("dashboard.noRecentActivity")}</p>
             ) : (
               <ul className="flex flex-col gap-2 text-sm">
                 {adminSummary.topActiveUsers.map((u) => (
                   <li
                     key={u.userId}
-                    className="flex items-center justify-between border-b border-sage/40 pb-1 last:border-0"
+                    className="flex items-center justify-between border-b border-sage/40 pb-1.5 last:border-0"
                   >
                     <span className="text-dark-brown">{u.fullName}</span>
-                    <span className="text-xs font-semibold text-primary">{u.changeCount} cambios</span>
+                    <span className="rounded-full bg-sage/40 px-2 py-0.5 text-xs font-semibold tabular-nums text-primary">
+                      {t("dashboard.changes", { count: u.changeCount })}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -142,61 +150,88 @@ function AdminOperatorDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
         {CONTAINER_STATUS_ORDER.map((status) => (
-          <div key={status} className="rounded-lg bg-white p-4 shadow-card">
+          <div
+            key={status}
+            className="relative overflow-hidden rounded-lg border border-sage/30 bg-white p-4 shadow-card transition-shadow duration-200 hover:shadow-elevated"
+          >
+            <span className="absolute inset-x-0 top-0 h-1 bg-gradient-primary" />
             <Badge status={status} className="mb-2" />
-            <p className="text-2xl font-bold text-dark-brown">{statusCounts.get(status) ?? 0}</p>
+            <p className="text-2xl font-bold tabular-nums text-dark-brown">{statusCounts.get(status) ?? 0}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="Vencimiento de días libres (próximos 5 días)">
+        <Card title={t("dashboard.expiringSoon")}>
           {expiringSoon.length === 0 ? (
-            <p className="text-sm text-gray-500">No hay contenedores próximos a vencer.</p>
+            <p className="text-sm text-gray-500">{t("dashboard.noExpiringSoon")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {expiringSoon.map((c) => (
-                <ContainerMiniRow key={c.id} container={c} highlight="gold" detail={formatDate(c.freeDaysExpiry)} />
+                <ContainerMiniRow
+                  key={c.id}
+                  container={c}
+                  icon={Clock3}
+                  highlight="gold"
+                  detail={formatDate(c.freeDaysExpiry)}
+                />
               ))}
             </ul>
           )}
         </Card>
 
-        <Card title="Contenedores con retraso">
+        <Card title={t("dashboard.delayedContainers")}>
           {delayed.length === 0 ? (
-            <p className="text-sm text-gray-500">No hay contenedores con retraso marcado.</p>
+            <p className="text-sm text-gray-500">{t("dashboard.noDelayed")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {delayed.map((c) => (
-                <ContainerMiniRow key={c.id} container={c} highlight="red" detail={statusLabel(c.status)} />
+                <ContainerMiniRow
+                  key={c.id}
+                  container={c}
+                  icon={AlertTriangle}
+                  highlight="red"
+                  detail={statusLabel(c.status)}
+                />
               ))}
             </ul>
           )}
         </Card>
 
-        <Card title="Últimas actualizaciones">
+        <Card title={t("dashboard.recentUpdates")}>
           {!recentUpdates || recentUpdates.content.length === 0 ? (
-            <p className="text-sm text-gray-500">Sin actividad reciente.</p>
+            <p className="text-sm text-gray-500">{t("dashboard.noRecentUpdates")}</p>
           ) : (
-            <ul className="flex flex-col gap-2 text-sm">
+            <ul className="relative flex flex-col gap-4 pl-2">
+              <span aria-hidden className="absolute bottom-1 left-[11px] top-1 w-px bg-sage/60" />
               {recentUpdates.content.map((c) => (
-                <li key={c.id} className="flex items-center justify-between border-b border-sage/40 pb-1 last:border-0">
-                  <Link to={`/containers/${c.id}`} className="text-primary hover:underline">
-                    {c.containerNumber}
-                  </Link>
-                  <span className="text-xs text-gray-500">
-                    {c.lastUpdatedBy?.fullName ?? "N/D"} — {formatDateTime(c.lastUpdatedAt)}
+                <li key={c.id} className="relative flex items-start gap-3 pl-6">
+                  <span className="absolute left-0 top-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary text-ivory shadow-subtle">
+                    <History size={11} />
                   </span>
+                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <Link
+                      to={`/containers/${c.id}`}
+                      className="truncate text-sm font-medium text-primary hover:underline"
+                    >
+                      {c.containerNumber}
+                    </Link>
+                    <span className="flex-shrink-0 text-xs text-gray-500">
+                      {c.lastUpdatedByName ?? t("containerDetail.notAvailable")} — {formatDateTime(c.lastUpdatedAt)}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </Card>
 
-        <Card title="Contenedores por naviera">
-          <BarChart data={perCompany} />
+        <Card title={t("dashboard.byShippingCompany")}>
+          <div className="overflow-x-auto">
+            <BarChart data={perCompany} />
+          </div>
         </Card>
       </div>
     </div>
@@ -204,6 +239,7 @@ function AdminOperatorDashboard() {
 }
 
 function WarehouseDashboard() {
+  const { t } = useTranslation();
   const { data: pending, isLoading: loadingPending } = useQuery({
     queryKey: ["containers", { warehousePending: true }],
     queryFn: () => containersApi.list({ page: 0, size: 200, status: "ARRIVED_WAREHOUSE" }),
@@ -223,32 +259,32 @@ function WarehouseDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-display text-2xl font-bold text-primary">Dashboard</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-primary md:text-3xl">{t("dashboard.title")}</h1>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="Pendientes de descarga">
+        <Card title={t("dashboard.pendingDischarge")}>
           {loadingPending ? (
             <Spinner />
           ) : pending?.content.length === 0 ? (
-            <p className="text-sm text-gray-500">No hay contenedores pendientes de descarga.</p>
+            <p className="text-sm text-gray-500">{t("dashboard.noPendingDischarge")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {pending?.content.map((c) => (
-                <ContainerMiniRow key={c.id} container={c} detail={c.destinationPort} />
+                <ContainerMiniRow key={c.id} container={c} icon={Anchor} detail={c.destinationPort} />
               ))}
             </ul>
           )}
         </Card>
 
-        <Card title="Descargas completadas (últimos 7 días)">
+        <Card title={t("dashboard.recentDischarges")}>
           {loadingDischarged ? (
             <Spinner />
           ) : recentDischarges.length === 0 ? (
-            <p className="text-sm text-gray-500">No hay descargas completadas en los últimos 7 días.</p>
+            <p className="text-sm text-gray-500">{t("dashboard.noRecentDischarges")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {recentDischarges.map((c) => (
-                <ContainerMiniRow key={c.id} container={c} detail={formatDateTime(c.dischargeEndAt)} />
+                <ContainerMiniRow key={c.id} container={c} icon={History} detail={formatDateTime(c.dischargeEndAt)} />
               ))}
             </ul>
           )}
@@ -268,13 +304,13 @@ function AdminStatCard({
   value: number;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-white p-4 shadow-card">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sage/50 text-primary">
+    <div className="flex items-center gap-4 rounded-lg border border-sage/30 bg-white p-4 shadow-card transition-shadow duration-200 hover:shadow-elevated">
+      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-primary text-ivory shadow-subtle">
         <Icon size={20} />
       </div>
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-dark-brown">{value}</p>
+      <div className="min-w-0">
+        <p className="truncate text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+        <p className="text-2xl font-bold tabular-nums text-dark-brown">{value}</p>
       </div>
     </div>
   );
@@ -284,20 +320,41 @@ function ContainerMiniRow({
   container,
   detail,
   highlight,
+  icon: Icon,
 }: {
   container: Container;
   detail: string;
   highlight?: "gold" | "red";
+  icon?: typeof Clock3;
 }) {
   const highlightClass =
-    highlight === "gold" ? "bg-[#FEF9E7]" : highlight === "red" ? "bg-[#FADBD8]" : "bg-transparent";
+    highlight === "gold"
+      ? "bg-[#FEF9E7] hover:bg-[#FCF0C8]"
+      : highlight === "red"
+        ? "bg-[#FADBD8] hover:bg-[#F8C9C1]"
+        : "bg-transparent hover:bg-sage/20";
+  const iconClass = highlight === "gold" ? "text-accent-dark" : highlight === "red" ? "text-[#C0392B]" : "text-primary";
 
   return (
-    <li className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${highlightClass}`}>
-      <Link to={`/containers/${container.id}`} className="font-medium text-primary hover:underline">
-        {container.containerNumber}
+    <li>
+      <Link
+        to={`/containers/${container.id}`}
+        className={`group flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors duration-150 ${highlightClass}`}
+      >
+        {Icon && (
+          <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white/70 ${iconClass}`}>
+            <Icon size={14} />
+          </span>
+        )}
+        <span className="min-w-0 flex-1 truncate font-medium text-primary group-hover:underline">
+          {container.containerNumber}
+        </span>
+        <span className="flex-shrink-0 text-xs text-dark-brown">{detail}</span>
+        <ArrowUpRight
+          size={14}
+          className="flex-shrink-0 text-dark-brown/40 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+        />
       </Link>
-      <span className="text-xs text-dark-brown">{detail}</span>
     </li>
   );
 }

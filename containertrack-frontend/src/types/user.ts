@@ -27,11 +27,16 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   fullName: string;
+  email: string;
   role: Role;
 }
 
 export interface UpdateUserStatusRequest {
   status: "ACTIVE" | "INACTIVE";
+}
+
+export interface ResetUserPasswordRequest {
+  temporaryPassword: string;
 }
 
 export interface UserOption {

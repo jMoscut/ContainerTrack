@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/ui/Modal";
 import { Button, Input } from "../../components/ui";
 import { containersApi } from "../../api/containersApi";
@@ -35,6 +36,7 @@ export function EditDateModal({
   currentValue,
   onSaved,
 }: EditDateModalProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [value, setValue] = useState(() => toGuatemalaDateInputValue(currentValue));
 
@@ -47,8 +49,11 @@ export function EditDateModal({
       return containersApi.update(containerId, payload);
     },
     onSuccess: () => {
-      toast.success("Fecha actualizada correctamente");
-      queryClient.invalidateQueries({ queryKey: ["container", containerId] });
+      toast.success(t("editDate.success"));
+      // containerId is typed string but actually arrives as a runtime number (backend
+      // sends id as a JSON number) — coerce or the key silently fails to match
+      // ContainerDetailPage's useParams-based (real string) query key.
+      queryClient.invalidateQueries({ queryKey: ["container", String(containerId)] });
       queryClient.invalidateQueries({ queryKey: ["containers"] });
       onClose();
       onSaved?.();
@@ -56,14 +61,14 @@ export function EditDateModal({
     onError: (err) => {
       if (isAxiosError<ApiError>(err) && err.response) {
         if (err.response.data.error === "EDIT_CONFLICT") {
-          toast.error("Otro usuario modificó este contenedor mientras editabas. Recarga para ver los cambios actuales.");
+          toast.error(t("editDate.conflict"));
           queryClient.invalidateQueries({ queryKey: ["containers"] });
           onClose();
           return;
         }
-        toast.error(err.response.data.message || "No se pudo actualizar la fecha");
+        toast.error(err.response.data.message || t("editDate.error"));
       } else {
-        toast.error("No se pudo actualizar la fecha");
+        toast.error(t("editDate.error"));
       }
     },
   });
@@ -74,7 +79,22 @@ export function EditDateModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Editar fecha" size="sm">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t("editDate.title")}
+      size="sm"
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            {t("editDate.cancel")}
+          </Button>
+          <Button type="submit" form="edit-date-form" isLoading={mutation.isPending}>
+            {t("editDate.save")}
+          </Button>
+        </>
+      }
+    >
       <form id="edit-date-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label={fieldLabel}
@@ -84,14 +104,6 @@ export function EditDateModal({
           onChange={(e) => setValue(e.target.value)}
         />
       </form>
-      <div className="mt-4 flex justify-end gap-2 border-t border-sage pt-4">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Cancelar
-        </Button>
-        <Button type="submit" form="edit-date-form" isLoading={mutation.isPending}>
-          Guardar
-        </Button>
-      </div>
     </Modal>
   );
 }

@@ -8,4 +8,5 @@ import java.util.List;
 public interface ContainerPhotoRepository extends JpaRepository<ContainerPhoto, Long> {
     List<ContainerPhoto> findByContainerId(Long containerId);
     long countByContainerId(Long containerId);
+    void deleteByContainerId(Long containerId);
 }

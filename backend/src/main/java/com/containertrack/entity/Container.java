@@ -25,8 +25,17 @@ public class Container {
     @Column(name = "container_number", nullable = false, length = 11)
     private String containerNumber;
 
+    @Column(name = "bl_number", nullable = false, length = 50)
+    private String blNumber;
+
     @Column(name = "shipping_company_id", nullable = false)
     private Long shippingCompanyId;
+
+    @Column(name = "land_carrier_id")
+    private Long landCarrierId;
+
+    @Column(name = "warehouse_assignee_id")
+    private Long warehouseAssigneeId;
 
     @Column(name = "origin_port", nullable = false)
     private String originPort;

@@ -1,6 +1,7 @@
 package com.containertrack.service;
 
 import com.containertrack.dto.request.CreateUserRequest;
+import com.containertrack.dto.request.ResetUserPasswordRequest;
 import com.containertrack.dto.request.UpdateUserRequest;
 import com.containertrack.dto.request.UpdateUserStatusRequest;
 import com.containertrack.dto.response.UserDTO;
@@ -99,6 +100,13 @@ public class UserService {
             auditService.logFieldChangeIfDiffers("USER", id, "fullName", user.getFullName(), request.getFullName(), performedBy);
             user.setFullName(request.getFullName());
         }
+        if (request.getEmail() != null && !Objects.equals(request.getEmail(), user.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new ConflictException("EMAIL_ALREADY_EXISTS", "Ya existe un usuario con ese correo electrónico.");
+            }
+            auditService.logFieldChangeIfDiffers("USER", id, "email", user.getEmail(), request.getEmail(), performedBy);
+            user.setEmail(request.getEmail());
+        }
         if (request.getRole() != null && request.getRole() != user.getRole()) {
             auditService.logFieldChangeIfDiffers("USER", id, "role", user.getRole(), request.getRole(), performedBy);
             user.setRole(request.getRole());
@@ -147,6 +155,27 @@ public class UserService {
         if (reactivating) {
             notificationService.sendReactivationEmail(user, tempPassword);
         }
+
+        return userMapper.toDto(user);
+    }
+
+    /** Admin-initiated password reset: admin types the new temporary password (not
+     *  auto-generated, unlike create()/reactivation), and the user is forced to change
+     *  it on next login. This is one of the only two flows that ever set
+     *  must_change_password=true — the other being new-user creation. */
+    @Transactional
+    public UserDTO resetPassword(Long id, ResetUserPasswordRequest request, Long performedBy) {
+        User user = findUser(id);
+        PasswordPolicy.validate(request.getTemporaryPassword());
+
+        user.setPasswordHash(passwordEncoder.encode(request.getTemporaryPassword()));
+        user.setMustChangePassword(true);
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        user = userRepository.save(user);
+
+        auditService.log("USER", id, com.containertrack.entity.AuditAction.UPDATE, "password", null, null, performedBy);
+        notificationService.sendPasswordResetEmail(user, request.getTemporaryPassword());
 
         return userMapper.toDto(user);
     }

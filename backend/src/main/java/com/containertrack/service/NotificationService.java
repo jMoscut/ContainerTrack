@@ -49,6 +49,20 @@ public class NotificationService {
         }
     }
 
+    /** Admin manually reset this user's password to a chosen temporary value. */
+    public void sendPasswordResetEmail(User user, String temporaryPassword) {
+        try {
+            Map<String, Object> vars = new HashMap<>();
+            vars.put("fullName", user.getFullName());
+            vars.put("email", user.getEmail());
+            vars.put("temporaryPassword", temporaryPassword);
+            vars.put("loginUrl", frontendUrl + "/login");
+            emailService.sendTemplateEmail(user.getEmail(), "[ContainerTrack] Tu contraseña fue restablecida", "reactivation", vars);
+        } catch (Exception e) {
+            log.warn("Could not send password reset email to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
     @Async
     public void sendEditConfirmationEmail(Container container, List<String> changedFields, User editor) {
         try {

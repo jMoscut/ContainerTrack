@@ -6,6 +6,7 @@ import {
   fromGuatemalaInputValue,
   toGuatemalaDateInputValue,
   fromGuatemalaDateInputValue,
+  fromGuatemalaDateInputValueEndOfDay,
 } from '../dateFormat'
 
 describe('toGuatemalaInputValue', () => {
@@ -47,8 +48,15 @@ describe('date-only helpers', () => {
     expect(toGuatemalaDateInputValue('2024-11-15T06:00:00Z')).toBe('2024-11-15')
   })
 
-  it('fromGuatemalaDateInputValue passes date-only values through unchanged', () => {
-    expect(fromGuatemalaDateInputValue('2024-11-15')).toBe('2024-11-15')
+  it('fromGuatemalaDateInputValue converts a Guatemala calendar date to that midnight in UTC (not a bare date passthrough — the backend field is a full OffsetDateTime)', () => {
+    // Guatemala midnight (UTC-6) on 2024-11-15 is 06:00 UTC the same day.
+    expect(fromGuatemalaDateInputValue('2024-11-15')).toBe('2024-11-15T06:00:00.000Z')
+  })
+
+  it('fromGuatemalaDateInputValueEndOfDay anchors to the end of the Guatemala calendar day, for inclusive range filters', () => {
+    const result = fromGuatemalaDateInputValueEndOfDay('2024-11-15')
+    // 2024-11-15T23:59 Guatemala (UTC-6) -> 2024-11-16T05:59 UTC.
+    expect(result).toBe('2024-11-16T05:59:00.000Z')
   })
 })
 

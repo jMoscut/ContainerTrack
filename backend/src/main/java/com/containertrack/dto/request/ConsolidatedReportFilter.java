@@ -9,6 +9,7 @@ import java.time.OffsetDateTime;
 public class ConsolidatedReportFilter {
     private ContainerStatus status;
     private Long shippingCompanyId;
+    private Long operatorId;
     private OffsetDateTime dateFrom;
     private OffsetDateTime dateTo;
 }

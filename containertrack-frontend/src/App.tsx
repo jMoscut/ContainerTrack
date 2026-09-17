@@ -28,6 +28,9 @@ const ShippingCompaniesPage = lazy(() =>
   import("./features/shippingCompanies/ShippingCompaniesPage").then((m) => ({ default: m.ShippingCompaniesPage })),
 );
 const PortsPage = lazy(() => import("./features/ports/PortsPage").then((m) => ({ default: m.PortsPage })));
+const LandCarriersPage = lazy(() =>
+  import("./features/landCarriers/LandCarriersPage").then((m) => ({ default: m.LandCarriersPage })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,23 +77,20 @@ function App() {
                     </RequireAuth>
                   }
                 />
-                <Route path="/reports" element={<ReportsPage />} />
                 <Route
-                  path="/navieras"
+                  path="/reports"
                   element={
-                    <RequireAuth roles={["ADMIN"]}>
-                      <ShippingCompaniesPage />
+                    <RequireAuth roles={["ADMIN", "OPERATOR"]}>
+                      <ReportsPage />
                     </RequireAuth>
                   }
                 />
-                <Route
-                  path="/puertos"
-                  element={
-                    <RequireAuth roles={["ADMIN"]}>
-                      <PortsPage />
-                    </RequireAuth>
-                  }
-                />
+                {/* Navieras/puertos/transportistas: todos los roles pueden VER (solo lectura
+                    fuera de ADMIN); la restricción de edición vive dentro de cada página
+                    vía usePermissions, no en la ruta. */}
+                <Route path="/navieras" element={<ShippingCompaniesPage />} />
+                <Route path="/puertos" element={<PortsPage />} />
+                <Route path="/transportistas" element={<LandCarriersPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

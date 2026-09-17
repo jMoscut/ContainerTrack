@@ -21,8 +21,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,10 +36,12 @@ public class ContainerService {
 
     private final ContainerRepository containerRepository;
     private final ShippingCompanyRepository shippingCompanyRepository;
+    private final LandCarrierRepository landCarrierRepository;
     private final UserRepository userRepository;
     private final ContainerPhotoRepository containerPhotoRepository;
     private final ContainerFieldChangeRepository fieldChangeRepository;
     private final AuditLogRepository auditLogRepository;
+    private final NotificationLogRepository notificationLogRepository;
     private final ContainerMapper containerMapper;
     private final AuditService auditService;
     private final ContainerStateMachine stateMachine;
@@ -46,6 +49,7 @@ public class ContainerService {
     private final NotificationService notificationService;
 
     private static final int REUSE_COOLDOWN_DAYS = 30;
+    private static final ZoneId GUATEMALA_ZONE = ZoneId.of("America/Guatemala");
 
     @Transactional
     public ContainerDTO create(CreateContainerRequest request, Long createdBy) {
@@ -55,10 +59,23 @@ public class ContainerService {
             throw new BadRequestException("SHIPPING_COMPANY_INACTIVE", "La naviera seleccionada no está activa.");
         }
 
-        userRepository.findById(request.getResponsibleOperatorId())
+        User operator = userRepository.findById(request.getResponsibleOperatorId())
                 .orElseThrow(() -> new NotFoundException("Operador responsable no encontrado."));
+        if (operator.getRole() == Role.WAREHOUSE) {
+            // WAREHOUSE staff get assigned to a container separately (assignWarehouse,
+            // once it reaches port) — they're never the "operador responsable" that
+            // owns it from creation.
+            throw new BadRequestException("INVALID_OPERATOR_ROLE",
+                    "El operador responsable debe tener rol ADMIN u OPERATOR.");
+        }
 
-        if (request.getEstimatedDepartureDate().isBefore(OffsetDateTime.now(ZoneOffset.UTC))) {
+        // Compared calendar-date-wise in Guatemala time, not instant-wise: this field is
+        // date-only in the UI, so "today" must always be accepted regardless of what time
+        // it currently is — an instant comparison would reject "today" the moment its
+        // Guatemala-midnight instant passes, i.e. almost immediately every single day.
+        LocalDate estimatedDate = request.getEstimatedDepartureDate().atZoneSameInstant(GUATEMALA_ZONE).toLocalDate();
+        LocalDate todayInGuatemala = OffsetDateTime.now(ZoneOffset.UTC).atZoneSameInstant(GUATEMALA_ZONE).toLocalDate();
+        if (estimatedDate.isBefore(todayInGuatemala)) {
             throw new BadRequestException("PAST_DATE", "La fecha estimada de salida no puede estar en el pasado.");
         }
 
@@ -81,7 +98,9 @@ public class ContainerService {
 
         Container container = Container.builder()
                 .containerNumber(request.getContainerNumber())
+                .blNumber(request.getBlNumber())
                 .shippingCompanyId(company.getId())
+                .landCarrierId(request.getLandCarrierId())
                 .originPort(request.getOriginPort())
                 .destinationPort(request.getDestinationPort())
                 .cargoDescription(request.getCargoDescription())
@@ -115,10 +134,11 @@ public class ContainerService {
                                     OffsetDateTime dateTo, Long operatorId, Role viewerRole, Pageable pageable) {
         Specification<Container> spec = (root, query, cb) -> cb.conjunction();
 
-        if (viewerRole == Role.WAREHOUSE) {
-            spec = spec.and((root, query, cb) ->
-                    root.get("status").in(ContainerStatus.ARRIVED_WAREHOUSE, ContainerStatus.DISCHARGED));
-        } else if (status != null) {
+        // Every role sees containers in every state now — full-lifecycle visibility so
+        // WAREHOUSE staff stay aware of what's coming, even before it's their turn to
+        // act on it. Editing/transition rights stay separately gated (see update()/
+        // enforceRolePermissions()) to DEPARTED_PORT onward.
+        if (status != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         }
 
@@ -152,12 +172,24 @@ public class ContainerService {
                 .ifPresent(c -> dto.setShippingCompanyName(c.getName()));
         userRepository.findById(dto.getResponsibleOperatorId())
                 .ifPresent(u -> dto.setResponsibleOperatorName(u.getFullName()));
+        if (dto.getLastUpdatedBy() != null) {
+            userRepository.findById(dto.getLastUpdatedBy())
+                    .ifPresent(u -> dto.setLastUpdatedByName(u.getFullName()));
+        }
+        if (dto.getLandCarrierId() != null) {
+            landCarrierRepository.findById(dto.getLandCarrierId())
+                    .ifPresent(c -> dto.setLandCarrierName(c.getName()));
+        }
+        if (dto.getWarehouseAssigneeId() != null) {
+            userRepository.findById(dto.getWarehouseAssigneeId())
+                    .ifPresent(u -> dto.setWarehouseAssigneeName(u.getFullName()));
+        }
         dto.setPhotoCount((int) containerPhotoRepository.countByContainerId(dto.getId()));
         return dto;
     }
 
     @Transactional
-    public ContainerDTO update(Long id, UpdateContainerRequest request, Long editorId) {
+    public ContainerDTO update(Long id, UpdateContainerRequest request, Long editorId, Role editorRole) {
         Container container = findContainer(id);
 
         if (container.getStatus() == ContainerStatus.DISCHARGED) {
@@ -165,7 +197,41 @@ public class ContainerService {
                     "Este contenedor ya fue descargado y su información es de solo lectura.");
         }
 
+        enforceAssignment(container, editorId, editorRole);
+
+        // WAREHOUSE can see every container (full-lifecycle visibility), but may only
+        // edit it once it has left port — before that it isn't their responsibility yet.
+        // Exception: landCarrierId ("transporte terrestre") can be set as early as
+        // ARRIVED_PORT, since that's when it's actually known/needed.
+        if (editorRole == Role.WAREHOUSE) {
+            boolean onlyLandCarrierChanging = request.getShippingCompanyId() == null && request.getOriginPort() == null
+                    && request.getDestinationPort() == null && request.getCargoDescription() == null
+                    && request.getResponsibleOperatorId() == null && request.getEstimatedDepartureDate() == null
+                    && request.getInternalNotes() == null && request.getBlNumber() == null
+                    && request.getLandCarrierId() != null;
+            int minOrdinal = onlyLandCarrierChanging
+                    ? ContainerStatus.ARRIVED_PORT.ordinal() : ContainerStatus.DEPARTED_PORT.ordinal();
+            if (container.getStatus().ordinal() < minOrdinal) {
+                throw new ForbiddenException("ROLE_NOT_ALLOWED",
+                        "El rol WAREHOUSE solo puede editar contenedores que ya salieron del puerto.");
+            }
+        }
+
         List<String> changedFields = new ArrayList<>();
+
+        if (request.getBlNumber() != null && !Objects.equals(request.getBlNumber(), container.getBlNumber())) {
+            recordChange(id, "blNumber", container.getBlNumber(), request.getBlNumber(), editorId, changedFields);
+            container.setBlNumber(request.getBlNumber());
+        }
+        if (request.getLandCarrierId() != null && !Objects.equals(request.getLandCarrierId(), container.getLandCarrierId())) {
+            LandCarrier carrier = landCarrierRepository.findById(request.getLandCarrierId())
+                    .orElseThrow(() -> new NotFoundException("Transportista terrestre no encontrado."));
+            if (!Boolean.TRUE.equals(carrier.getIsActive())) {
+                throw new BadRequestException("LAND_CARRIER_INACTIVE", "El transportista terrestre seleccionado no está activo.");
+            }
+            recordChange(id, "landCarrierId", container.getLandCarrierId(), request.getLandCarrierId(), editorId, changedFields);
+            container.setLandCarrierId(request.getLandCarrierId());
+        }
 
         if (request.getShippingCompanyId() != null && !Objects.equals(request.getShippingCompanyId(), container.getShippingCompanyId())) {
             ShippingCompany company = shippingCompanyRepository.findById(request.getShippingCompanyId())
@@ -189,8 +255,12 @@ public class ContainerService {
             container.setCargoDescription(request.getCargoDescription());
         }
         if (request.getResponsibleOperatorId() != null && !Objects.equals(request.getResponsibleOperatorId(), container.getResponsibleOperatorId())) {
-            userRepository.findById(request.getResponsibleOperatorId())
+            User newOperator = userRepository.findById(request.getResponsibleOperatorId())
                     .orElseThrow(() -> new NotFoundException("Operador responsable no encontrado."));
+            if (newOperator.getRole() == Role.WAREHOUSE) {
+                throw new BadRequestException("INVALID_OPERATOR_ROLE",
+                        "El operador responsable debe tener rol ADMIN u OPERATOR.");
+            }
             recordChange(id, "responsibleOperatorId", container.getResponsibleOperatorId(), request.getResponsibleOperatorId(), editorId, changedFields);
             container.setResponsibleOperatorId(request.getResponsibleOperatorId());
         }
@@ -238,6 +308,7 @@ public class ContainerService {
         ContainerStatus target = request.getTargetStatus();
 
         enforceRolePermissions(performerRole, target);
+        enforceAssignment(container, performedBy, performerRole);
 
         stateMachine.validateTransition(current, target);
 
@@ -267,7 +338,7 @@ public class ContainerService {
                 int freeDays = request.getFreeDaysLimitOverride() != null
                         ? request.getFreeDaysLimitOverride() : container.getFreeDaysLimit();
                 container.setFreeDaysLimit(freeDays);
-                container.setFreeDaysExpiry(addBusinessDays(request.getActualArrivalPort(), freeDays));
+                container.setFreeDaysExpiry(addCalendarDays(request.getActualArrivalPort(), freeDays));
 
                 if (container.getEstimatedArrivalPort() != null) {
                     long diffHours = Math.abs(java.time.Duration.between(
@@ -331,18 +402,56 @@ public class ContainerService {
         // ADMIN and OPERATOR can perform any transition up through ARRIVED_WAREHOUSE (per CU-05.4).
     }
 
-    /** Adds N business days (skipping Saturday/Sunday) to the given instant. */
-    public static OffsetDateTime addBusinessDays(OffsetDateTime start, int businessDays) {
-        OffsetDateTime result = start;
-        int added = 0;
-        while (added < businessDays) {
-            result = result.plusDays(1);
-            DayOfWeek dow = result.getDayOfWeek();
-            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
-                added++;
+    /**
+     * Only the user specifically assigned to this container may edit/transition it —
+     * not just anyone holding the right role. ADMIN is exempt (can always act).
+     */
+    private void enforceAssignment(Container container, Long userId, Role role) {
+        if (role == Role.ADMIN) return;
+        if (role == Role.OPERATOR) {
+            if (!Objects.equals(container.getResponsibleOperatorId(), userId)) {
+                throw new ForbiddenException("NOT_ASSIGNED", "No estás asignado como operador responsable de este contenedor.");
+            }
+            return;
+        }
+        if (role == Role.WAREHOUSE) {
+            if (container.getWarehouseAssigneeId() == null || !Objects.equals(container.getWarehouseAssigneeId(), userId)) {
+                throw new ForbiddenException("NOT_ASSIGNED", "No estás asignado como responsable de bodega de este contenedor.");
             }
         }
-        return result;
+    }
+
+    @Transactional
+    public ContainerDTO assignWarehouse(Long id, Long warehouseAssigneeId, Long performedBy, Role performerRole) {
+        Container container = findContainer(id);
+
+        if (performerRole == Role.OPERATOR && !Objects.equals(container.getResponsibleOperatorId(), performedBy)) {
+            throw new ForbiddenException("NOT_ASSIGNED", "No estás asignado como operador responsable de este contenedor.");
+        }
+        if (container.getStatus().ordinal() < ContainerStatus.ARRIVED_PORT.ordinal()) {
+            throw new BadRequestException("CONTAINER_NOT_AT_PORT",
+                    "Solo se puede asignar bodega una vez el contenedor llegó a puerto.");
+        }
+
+        User assignee = userRepository.findById(warehouseAssigneeId)
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado."));
+        if (assignee.getRole() != Role.WAREHOUSE) {
+            throw new BadRequestException("INVALID_ASSIGNEE_ROLE", "El responsable de bodega debe tener rol WAREHOUSE.");
+        }
+
+        Long oldAssignee = container.getWarehouseAssigneeId();
+        container.setWarehouseAssigneeId(warehouseAssigneeId);
+        container.setLastUpdatedBy(performedBy);
+        container.setLastUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        container = containerRepository.save(container);
+
+        auditService.logFieldChangeIfDiffers("CONTAINER", id, "warehouseAssigneeId", oldAssignee, warehouseAssigneeId, performedBy);
+        return enrich(containerMapper.toDto(container));
+    }
+
+    /** Adds N calendar days (corridos) to the given instant — weekends count, no skipping. */
+    public static OffsetDateTime addCalendarDays(OffsetDateTime start, int days) {
+        return start.plusDays(days);
     }
 
     public List<FieldChangeDTO> history(Long id) {
@@ -396,6 +505,15 @@ public class ContainerService {
             throw new ConflictException("CANNOT_DELETE_CONTAINER",
                     "Solo se pueden eliminar contenedores en estado REGISTERED que aún no han iniciado tránsito.");
         }
+
+        // A REGISTERED container never has photos and is very unlikely to have
+        // notification_log rows (those only trigger off later-stage date fields), but it
+        // CAN already have container_field_changes from ordinary edits (CU-12) before
+        // deletion — none of these FKs cascade at the DB level, so clear them explicitly
+        // or the delete below fails with a data-integrity violation.
+        fieldChangeRepository.deleteByContainerId(id);
+        containerPhotoRepository.deleteByContainerId(id);
+        notificationLogRepository.deleteByContainerId(id);
 
         auditService.log("CONTAINER", container.getId(), AuditAction.DELETE, null, null, null, performedBy);
         containerRepository.delete(container);

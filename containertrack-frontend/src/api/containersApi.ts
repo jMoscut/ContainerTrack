@@ -27,6 +27,11 @@ export const containersApi = {
   transition: (id: string, payload: TransitionRequest) =>
     axiosInstance.post<Container>(`/api/containers/${id}/transition`, payload).then((r) => r.data),
 
+  assignWarehouse: (id: string, warehouseAssigneeId: number) =>
+    axiosInstance
+      .patch<Container>(`/api/containers/${id}/assign-warehouse`, { warehouseAssigneeId })
+      .then((r) => r.data),
+
   history: (id: string) =>
     axiosInstance.get<ContainerHistory>(`/api/containers/${id}/history`).then((r) => r.data),
 

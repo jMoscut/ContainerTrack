@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface ContainerFieldChangeRepository extends JpaRepository<ContainerFieldChange, Long> {
     List<ContainerFieldChange> findByContainerIdOrderByUpdatedAtAsc(Long containerId);
+    void deleteByContainerId(Long containerId);
 }

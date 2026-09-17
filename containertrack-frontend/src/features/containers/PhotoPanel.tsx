@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { Upload } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { UploadCloud, Eye, ImageOff } from "lucide-react";
 import { Card } from "../../components/ui/Card";
-import { Button } from "../../components/ui";
 import { Spinner } from "../../components/shared/Spinner";
 import { containersApi } from "../../api/containersApi";
 import { formatDateTime } from "../../utils/dateFormat";
@@ -19,6 +19,7 @@ interface PhotoPanelProps {
 }
 
 export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoPanelProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientError, setClientError] = useState<string | null>(null);
@@ -37,13 +38,18 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["containerPhotos", containerId] });
       if (result.uploaded.length) {
-        toast.success(`${result.uploaded.length} foto(s) subida(s) correctamente`);
+        toast.success(t("photos.uploadSuccess", { count: result.uploaded.length }));
       }
       if (result.failed.length) {
-        toast.error(`${result.failed.length} foto(s) fallaron: ${result.failed.map((f) => f.filename).join(", ")}`);
+        toast.error(
+          t("photos.uploadFailed", {
+            count: result.failed.length,
+            names: result.failed.map((f) => f.filename).join(", "),
+          }),
+        );
       }
     },
-    onError: () => toast.error("No se pudieron subir las fotos"),
+    onError: () => toast.error(t("photos.uploadError")),
   });
 
   const handleFileChange = (fileList: FileList | null) => {
@@ -52,14 +58,12 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
     setClientError(null);
 
     if (files.length > MAX_FILES) {
-      setClientError(`Puedes subir un máximo de ${MAX_FILES} archivos a la vez.`);
+      setClientError(t("photos.maxFilesError", { max: MAX_FILES }));
       return;
     }
     const invalid = files.find((f) => !f.type.startsWith(ACCEPTED_MIME_PREFIX) || f.size > MAX_SIZE_BYTES);
     if (invalid) {
-      setClientError(
-        `El archivo "${invalid.name}" no es válido. Solo se permiten imágenes de hasta 10MB.`,
-      );
+      setClientError(t("photos.invalidFileError", { name: invalid.name }));
       return;
     }
 
@@ -68,7 +72,7 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
   };
 
   return (
-    <Card title="Evidencia fotográfica">
+    <Card title={t("photos.title")}>
       <div className="flex flex-col gap-4">
         {!readOnly && (
           <div>
@@ -80,15 +84,24 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
               className="hidden"
               onChange={(e) => handleFileChange(e.target.files)}
             />
-            <Button
+            <button
               type="button"
-              variant="secondary"
               onClick={() => fileInputRef.current?.click()}
-              isLoading={uploadMutation.isPending}
+              disabled={uploadMutation.isPending}
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-sage bg-sage/10 px-4 py-8 text-center transition-colors hover:border-primary hover:bg-sage/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Upload size={16} />
-              Subir fotos
-            </Button>
+              {uploadMutation.isPending ? (
+                <Spinner />
+              ) : (
+                <>
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <UploadCloud size={22} />
+                  </span>
+                  <span className="text-sm font-semibold text-dark-brown">{t("photos.clickToUpload")}</span>
+                  <span className="text-xs text-gray-500">{t("photos.formatHint", { max: MAX_FILES })}</span>
+                </>
+              )}
+            </button>
             {clientError && <p className="mt-2 text-sm text-[#C0392B]">{clientError}</p>}
           </div>
         )}
@@ -96,7 +109,10 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
         {isLoading && <Spinner />}
 
         {photos && photos.length === 0 && (
-          <p className="text-sm text-gray-500">Aún no se han subido fotos para este contenedor.</p>
+          <div className="flex flex-col items-center gap-2 py-6 text-center text-gray-500">
+            <ImageOff size={22} className="text-gray-300" />
+            <p className="text-sm">{t("photos.empty")}</p>
+          </div>
         )}
 
         {photos && photos.length > 0 && (
@@ -107,15 +123,25 @@ export function PhotoPanel({ containerId, readOnly, onPhotoCountChange }: PhotoP
                 href={photo.presignedUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="group flex flex-col overflow-hidden rounded-md border border-sage"
+                className="group relative flex flex-col overflow-hidden rounded-md border border-sage shadow-subtle transition-shadow hover:shadow-card"
               >
-                <img
-                  src={photo.presignedUrl}
-                  alt={photo.originalFilename}
-                  className="h-24 w-full object-cover transition-transform group-hover:scale-105"
-                />
+                <div className="relative h-24 w-full overflow-hidden bg-sage/20">
+                  <img
+                    src={photo.presignedUrl}
+                    alt={photo.originalFilename}
+                    className="h-24 w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 hidden items-center justify-center bg-dark-brown/40 opacity-0 transition-all duration-150 group-hover:opacity-100 sm:flex">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-primary">
+                      <Eye size={16} />
+                    </span>
+                  </div>
+                  <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-primary shadow-subtle sm:hidden">
+                    <Eye size={13} />
+                  </span>
+                </div>
                 <div className="px-2 py-1 text-[11px] text-gray-500">
-                  <p className="truncate">{photo.uploadedBy.fullName}</p>
+                  <p className="truncate">{photo.uploadedByName ?? t("containerDetail.notAvailable")}</p>
                   <p>{formatDateTime(photo.uploadedAt)}</p>
                 </div>
               </a>

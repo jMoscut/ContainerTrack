@@ -18,11 +18,14 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/shipping-companies")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+@PreAuthorize("isAuthenticated()")
 public class ShippingCompanyController {
 
     private final ShippingCompanyService shippingCompanyService;
 
+    // Every role reads the company list now (needed for filters/display on
+    // container list/detail/calendar, which WAREHOUSE can now see in full).
+    // Mutating endpoints below stay ADMIN-only.
     @GetMapping
     public ResponseEntity<Page<ShippingCompanyDTO>> list(
             @RequestParam(defaultValue = "false") boolean includeInactive,

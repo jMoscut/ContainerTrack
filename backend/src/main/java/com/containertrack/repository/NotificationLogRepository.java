@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface NotificationLogRepository extends JpaRepository<NotificationLog, Long> {
     Optional<NotificationLog> findFirstByContainerIdAndNotificationTypeAndRecipientEmailAndStatus(
             Long containerId, String notificationType, String recipientEmail, NotificationStatus status);
+    void deleteByContainerId(Long containerId);
 }

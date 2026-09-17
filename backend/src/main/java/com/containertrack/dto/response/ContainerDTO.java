@@ -14,8 +14,13 @@ import java.time.OffsetDateTime;
 public class ContainerDTO {
     private Long id;
     private String containerNumber;
+    private String blNumber;
     private Long shippingCompanyId;
     private String shippingCompanyName;
+    private Long landCarrierId;
+    private String landCarrierName;
+    private Long warehouseAssigneeId;
+    private String warehouseAssigneeName;
     private String originPort;
     private String destinationPort;
     private String cargoDescription;
@@ -24,6 +29,7 @@ public class ContainerDTO {
     private String status;
     private Integer version;
     private Long lastUpdatedBy;
+    private String lastUpdatedByName;
     private OffsetDateTime lastUpdatedAt;
 
     private OffsetDateTime estimatedDepartureDate;

@@ -4,6 +4,7 @@ import type {
   CreateUserRequest,
   UpdateUserRequest,
   UpdateUserStatusRequest,
+  ResetUserPasswordRequest,
   User,
   UserOption,
 } from "../types/user";
@@ -25,6 +26,9 @@ export const usersApi = {
 
   updateStatus: (id: string, payload: UpdateUserStatusRequest) =>
     axiosInstance.patch<User>(`/api/users/${id}/status`, payload).then((r) => r.data),
+
+  resetPassword: (id: string, payload: ResetUserPasswordRequest) =>
+    axiosInstance.patch<User>(`/api/users/${id}/password`, payload).then((r) => r.data),
 
   resendActivation: (id: string) => axiosInstance.post<void>(`/api/users/${id}/resend-activation`),
 };

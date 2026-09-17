@@ -67,9 +67,30 @@ export function toGuatemalaDateInputValue(isoString: string | null | undefined):
 
 /**
  * Converts a raw <input type="date"> value (assumed to represent a Guatemala
- * calendar date) to a UTC ISO8601 string for the API. Date-only fields are
- * sent as the date string itself unless the API expects a full timestamp.
+ * calendar date) to a UTC ISO8601 string for the API.
+ *
+ * IMPORTANT: despite the field being date-only in the UI, every backend field this
+ * feeds (estimatedDepartureDate, estimatedArrivalPort, estimatedArrivalWarehouse,
+ * actualDepartureDate, actualArrivalPort, actualDeparturePort, actualArrivalWarehouse,
+ * freeDaysExpiry) is a full `OffsetDateTime` on the Java side — sending a bare
+ * "YYYY-MM-DD" string fails Jackson deserialization outright (500). This used to be an
+ * identity pass-through and was a real, live bug affecting container creation, every
+ * lifecycle transition, the calendar's inline date edit, and the container detail page's
+ * inline edit — treat the picked date as Guatemala-local midnight and convert to the
+ * correct UTC instant, matching fromGuatemalaInputValue's approach.
  */
 export function fromGuatemalaDateInputValue(inputValue: string): string {
-  return inputValue;
+  if (!inputValue) return inputValue;
+  return fromGuatemalaInputValue(`${inputValue}T00:00`);
+}
+
+/**
+ * Same conversion as `fromGuatemalaDateInputValue`, but anchored to the LAST instant of
+ * that Guatemala calendar day (23:59:59) instead of midnight. Use this for the *end* of a
+ * date-range filter ("hasta") so the selected day is included in full — anchoring it to
+ * midnight-start like the field-edit helper would effectively exclude the entire day.
+ */
+export function fromGuatemalaDateInputValueEndOfDay(inputValue: string): string {
+  if (!inputValue) return inputValue;
+  return fromGuatemalaInputValue(`${inputValue}T23:59`);
 }

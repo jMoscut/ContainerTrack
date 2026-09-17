@@ -1,6 +1,7 @@
 package com.containertrack.controller;
 
 import com.containertrack.dto.request.CreateUserRequest;
+import com.containertrack.dto.request.ResetUserPasswordRequest;
 import com.containertrack.dto.request.UpdateUserRequest;
 import com.containertrack.dto.request.UpdateUserStatusRequest;
 import com.containertrack.dto.response.UserDTO;
@@ -54,6 +55,12 @@ public class UserController {
     public ResponseEntity<UserDTO> update(@PathVariable Long id, @RequestBody UpdateUserRequest request,
                                            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(userService.update(id, request, principal.getId()));
+    }
+
+    @PatchMapping("/{id}/password")
+    public ResponseEntity<UserDTO> resetPassword(@PathVariable Long id, @Valid @RequestBody ResetUserPasswordRequest request,
+                                                  @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(userService.resetPassword(id, request, principal.getId()));
     }
 
     @PatchMapping("/{id}/status")

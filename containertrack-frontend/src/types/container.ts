@@ -1,5 +1,3 @@
-import type { ShippingCompanyRef } from "./shippingCompany";
-
 export type ContainerStatus =
   | "REGISTERED"
   | "DEPARTED_ORIGIN"
@@ -20,23 +18,28 @@ export const CONTAINER_STATUS_ORDER: ContainerStatus[] = [
   "DISCHARGED",
 ];
 
-export interface UserRef {
-  id: string;
-  fullName: string;
-}
-
 export interface Container {
   id: string;
   containerNumber: string;
-  shippingCompany: ShippingCompanyRef;
+  blNumber: string;
+  // Backend ContainerDTO is flat (shippingCompanyId/shippingCompanyName etc), not
+  // nested objects — matches the real wire contract, verified against the live API.
+  shippingCompanyId: string;
+  shippingCompanyName: string;
+  landCarrierId: string | null;
+  landCarrierName: string | null;
+  warehouseAssigneeId: string | null;
+  warehouseAssigneeName: string | null;
   originPort: string;
   destinationPort: string;
   cargoDescription: string;
-  responsibleOperator: UserRef;
+  responsibleOperatorId: string;
+  responsibleOperatorName: string;
   status: ContainerStatus;
   version: number;
-  lastUpdatedBy: UserRef | null;
-  lastUpdatedAt: string;
+  lastUpdatedBy: string | null;
+  lastUpdatedByName: string | null;
+  lastUpdatedAt: string | null;
   estimatedDepartureDate: string | null;
   actualDepartureDate: string | null;
   estimatedArrivalPort: string | null;
@@ -68,19 +71,26 @@ export interface ContainerListParams {
 
 export interface CreateContainerRequest {
   containerNumber: string;
-  shippingCompanyId: string;
+  blNumber: string;
+  // Backend expects these as Long (JSON number). React-hook-form/<select> values
+  // are always strings — convert with Number(...) at the call site before sending.
+  shippingCompanyId: number;
+  // Optional at creation — filled in once the container reaches port.
+  landCarrierId?: number;
   originPort: string;
   destinationPort: string;
   cargoDescription: string;
-  responsibleOperatorId: string;
+  responsibleOperatorId: number;
   estimatedDepartureDate: string;
   internalNotes?: string;
 }
 
 export type UpdateContainerRequest = Partial<
-  Omit<CreateContainerRequest, "containerNumber" | "shippingCompanyId">
+  Omit<CreateContainerRequest, "containerNumber" | "shippingCompanyId" | "responsibleOperatorId" | "landCarrierId">
 > & {
-  shippingCompanyId?: string;
+  shippingCompanyId?: number;
+  landCarrierId?: number;
+  responsibleOperatorId?: number;
   version: number;
   // Additional editable estimate fields, not part of container creation but
   // patchable afterwards (e.g. from the calendar's inline date-edit modal).
@@ -91,32 +101,32 @@ export type UpdateContainerRequest = Partial<
 export interface TransitionRequest {
   targetStatus: ContainerStatus;
   actualDepartureDate?: string;
+  // Adjustable per CU-05.1 when registering departure from origin.
+  estimatedArrivalPort?: string;
   actualArrivalPort?: string;
-  freeDaysLimit?: number;
+  // Field name must match backend exactly (TransitionRequest.freeDaysLimitOverride) —
+  // sending "freeDaysLimit" here is silently dropped by Jackson (unknown property),
+  // so the value the user enters never actually applies.
+  freeDaysLimitOverride?: number;
   actualDeparturePort?: string;
   estimatedArrivalWarehouse?: string;
   actualArrivalWarehouse?: string;
 }
 
-export interface FieldChange {
+// Backend GET /containers/{id}/history returns a single flat, chronologically-sorted
+// array — not a {fieldChanges, statusChanges} wrapper object — with a `type` discriminant
+// per entry. Matches the real FieldChangeDTO contract, verified against the live API.
+export interface HistoryEntry {
+  type: "FIELD_CHANGE" | "STATUS_CHANGE";
   fieldName: string;
   oldValue: string | null;
   newValue: string | null;
-  updatedBy: { fullName: string };
+  updatedById: string;
+  updatedByName: string | null;
   updatedAt: string;
 }
 
-export interface StatusChange {
-  oldValue: string;
-  newValue: string;
-  performedBy: { fullName: string };
-  performedAt: string;
-}
-
-export interface ContainerHistory {
-  fieldChanges: FieldChange[];
-  statusChanges: StatusChange[];
-}
+export type ContainerHistory = HistoryEntry[];
 
 export interface UploadedPhoto {
   photoId: string;
@@ -139,7 +149,9 @@ export interface ContainerPhoto {
   presignedUrl: string;
   originalFilename: string;
   uploadedAt: string;
-  uploadedBy: { fullName: string };
+  // Backend PhotoDTO is flat (uploadedById/uploadedByName), not a nested object.
+  uploadedById: string | null;
+  uploadedByName: string | null;
   isValid: boolean;
 }
 

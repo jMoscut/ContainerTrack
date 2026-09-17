@@ -10,6 +10,8 @@ public interface ContainerMapper {
 
     @Mapping(target = "shippingCompanyName", ignore = true)
     @Mapping(target = "responsibleOperatorName", ignore = true)
+    @Mapping(target = "landCarrierName", ignore = true)
+    @Mapping(target = "warehouseAssigneeName", ignore = true)
     @Mapping(target = "photoCount", ignore = true)
     ContainerDTO toDto(Container container);
 }
