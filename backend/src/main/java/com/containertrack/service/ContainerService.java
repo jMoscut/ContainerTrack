@@ -220,7 +220,7 @@ public class ContainerService {
         List<String> changedFields = new ArrayList<>();
 
         if (request.getBlNumber() != null && !Objects.equals(request.getBlNumber(), container.getBlNumber())) {
-            recordChange(id, "blNumber", container.getBlNumber(), request.getBlNumber(), editorId, changedFields);
+            recordChange(id, "blNumber", container.getBlNumber(), request.getBlNumber(), editorId, null, changedFields);
             container.setBlNumber(request.getBlNumber());
         }
         if (request.getLandCarrierId() != null && !Objects.equals(request.getLandCarrierId(), container.getLandCarrierId())) {
@@ -229,7 +229,7 @@ public class ContainerService {
             if (!Boolean.TRUE.equals(carrier.getIsActive())) {
                 throw new BadRequestException("LAND_CARRIER_INACTIVE", "El transportista terrestre seleccionado no está activo.");
             }
-            recordChange(id, "landCarrierId", container.getLandCarrierId(), request.getLandCarrierId(), editorId, changedFields);
+            recordChange(id, "landCarrierId", container.getLandCarrierId(), request.getLandCarrierId(), editorId, null, changedFields);
             container.setLandCarrierId(request.getLandCarrierId());
         }
 
@@ -239,19 +239,19 @@ public class ContainerService {
             if (!Boolean.TRUE.equals(company.getIsActive())) {
                 throw new BadRequestException("SHIPPING_COMPANY_INACTIVE", "La naviera seleccionada no está activa.");
             }
-            recordChange(id, "shippingCompanyId", container.getShippingCompanyId(), request.getShippingCompanyId(), editorId, changedFields);
+            recordChange(id, "shippingCompanyId", container.getShippingCompanyId(), request.getShippingCompanyId(), editorId, null, changedFields);
             container.setShippingCompanyId(request.getShippingCompanyId());
         }
         if (request.getOriginPort() != null && !Objects.equals(request.getOriginPort(), container.getOriginPort())) {
-            recordChange(id, "originPort", container.getOriginPort(), request.getOriginPort(), editorId, changedFields);
+            recordChange(id, "originPort", container.getOriginPort(), request.getOriginPort(), editorId, null, changedFields);
             container.setOriginPort(request.getOriginPort());
         }
         if (request.getDestinationPort() != null && !Objects.equals(request.getDestinationPort(), container.getDestinationPort())) {
-            recordChange(id, "destinationPort", container.getDestinationPort(), request.getDestinationPort(), editorId, changedFields);
+            recordChange(id, "destinationPort", container.getDestinationPort(), request.getDestinationPort(), editorId, null, changedFields);
             container.setDestinationPort(request.getDestinationPort());
         }
         if (request.getCargoDescription() != null && !Objects.equals(request.getCargoDescription(), container.getCargoDescription())) {
-            recordChange(id, "cargoDescription", container.getCargoDescription(), request.getCargoDescription(), editorId, changedFields);
+            recordChange(id, "cargoDescription", container.getCargoDescription(), request.getCargoDescription(), editorId, null, changedFields);
             container.setCargoDescription(request.getCargoDescription());
         }
         if (request.getResponsibleOperatorId() != null && !Objects.equals(request.getResponsibleOperatorId(), container.getResponsibleOperatorId())) {
@@ -261,15 +261,13 @@ public class ContainerService {
                 throw new BadRequestException("INVALID_OPERATOR_ROLE",
                         "El operador responsable debe tener rol ADMIN u OPERATOR.");
             }
-            recordChange(id, "responsibleOperatorId", container.getResponsibleOperatorId(), request.getResponsibleOperatorId(), editorId, changedFields);
+            recordChange(id, "responsibleOperatorId", container.getResponsibleOperatorId(), request.getResponsibleOperatorId(), editorId, null, changedFields);
             container.setResponsibleOperatorId(request.getResponsibleOperatorId());
         }
-        if (request.getEstimatedDepartureDate() != null && !Objects.equals(request.getEstimatedDepartureDate(), container.getEstimatedDepartureDate())) {
-            recordChange(id, "estimatedDepartureDate", container.getEstimatedDepartureDate(), request.getEstimatedDepartureDate(), editorId, changedFields);
-            container.setEstimatedDepartureDate(request.getEstimatedDepartureDate());
-        }
+        applyDateCorrections(id, request, container, editorId, null, changedFields);
+
         if (request.getInternalNotes() != null && !Objects.equals(request.getInternalNotes(), container.getInternalNotes())) {
-            recordChange(id, "internalNotes", container.getInternalNotes(), request.getInternalNotes(), editorId, changedFields);
+            recordChange(id, "internalNotes", container.getInternalNotes(), request.getInternalNotes(), editorId, null, changedFields);
             container.setInternalNotes(request.getInternalNotes());
         }
 
@@ -289,16 +287,114 @@ public class ContainerService {
         return enrich(containerMapper.toDto(container));
     }
 
-    private void recordChange(Long containerId, String field, Object oldVal, Object newVal, Long editorId, List<String> changedFields) {
+    private void recordChange(Long containerId, String field, Object oldVal, Object newVal, Long editorId,
+                               String reason, List<String> changedFields) {
         fieldChangeRepository.save(ContainerFieldChange.builder()
                 .containerId(containerId)
                 .fieldName(field)
                 .oldValue(oldVal == null ? null : String.valueOf(oldVal))
                 .newValue(newVal == null ? null : String.valueOf(newVal))
                 .updatedBy(editorId)
+                .reason(reason)
                 .build());
         auditService.log("CONTAINER", containerId, AuditAction.UPDATE, field, oldVal, newVal, editorId);
         changedFields.add(field);
+    }
+
+    /**
+     * Lifecycle dates (estimated + actual) and free days are normally set while the
+     * container progresses through /transition, but can be corrected here after the
+     * fact — e.g. a container registered retroactively, once its whole history is
+     * already known. Any such correction requires a justification (dateChangeReason)
+     * and is re-validated against the full chronological chain so a fix can't put the
+     * dates out of order with each other.
+     */
+    private void applyDateCorrections(Long id, UpdateContainerRequest request, Container container,
+                                       Long editorId, List<String> changedFields) {
+        boolean estimatedDepartureChanging = request.getEstimatedDepartureDate() != null
+                && !Objects.equals(request.getEstimatedDepartureDate(), container.getEstimatedDepartureDate());
+        boolean estimatedArrivalPortChanging = request.getEstimatedArrivalPort() != null
+                && !Objects.equals(request.getEstimatedArrivalPort(), container.getEstimatedArrivalPort());
+        boolean actualDepartureChanging = request.getActualDepartureDate() != null
+                && !Objects.equals(request.getActualDepartureDate(), container.getActualDepartureDate());
+        boolean actualArrivalPortChanging = request.getActualArrivalPort() != null
+                && !Objects.equals(request.getActualArrivalPort(), container.getActualArrivalPort());
+        boolean actualDeparturePortChanging = request.getActualDeparturePort() != null
+                && !Objects.equals(request.getActualDeparturePort(), container.getActualDeparturePort());
+        boolean estimatedArrivalWarehouseChanging = request.getEstimatedArrivalWarehouse() != null
+                && !Objects.equals(request.getEstimatedArrivalWarehouse(), container.getEstimatedArrivalWarehouse());
+        boolean actualArrivalWarehouseChanging = request.getActualArrivalWarehouse() != null
+                && !Objects.equals(request.getActualArrivalWarehouse(), container.getActualArrivalWarehouse());
+        boolean freeDaysLimitChanging = request.getFreeDaysLimit() != null
+                && !Objects.equals(request.getFreeDaysLimit(), container.getFreeDaysLimit());
+        boolean freeDaysExpiryChanging = request.getFreeDaysExpiry() != null
+                && !Objects.equals(request.getFreeDaysExpiry(), container.getFreeDaysExpiry());
+
+        boolean anyDateChanging = estimatedDepartureChanging || estimatedArrivalPortChanging || actualDepartureChanging
+                || actualArrivalPortChanging || actualDeparturePortChanging || estimatedArrivalWarehouseChanging
+                || actualArrivalWarehouseChanging || freeDaysLimitChanging || freeDaysExpiryChanging;
+        if (!anyDateChanging) {
+            return;
+        }
+
+        String reason = request.getDateChangeReason();
+        if (reason == null || reason.isBlank()) {
+            throw new BadRequestException("REASON_REQUIRED", "Debes indicar el motivo del cambio de fecha.");
+        }
+
+        // Validate the resulting chain (requested value where provided, current value
+        // otherwise) stays in chronological order end to end before applying anything.
+        OffsetDateTime finalActualDeparture = actualDepartureChanging ? request.getActualDepartureDate() : container.getActualDepartureDate();
+        OffsetDateTime finalActualArrivalPort = actualArrivalPortChanging ? request.getActualArrivalPort() : container.getActualArrivalPort();
+        OffsetDateTime finalActualDeparturePort = actualDeparturePortChanging ? request.getActualDeparturePort() : container.getActualDeparturePort();
+        OffsetDateTime finalActualArrivalWarehouse = actualArrivalWarehouseChanging ? request.getActualArrivalWarehouse() : container.getActualArrivalWarehouse();
+
+        if (finalActualDeparture != null && finalActualArrivalPort != null && finalActualArrivalPort.isBefore(finalActualDeparture)) {
+            throw new BadRequestException("DATE_ORDER", "La fecha real de arribo a puerto no puede ser anterior a la fecha real de salida.");
+        }
+        if (finalActualArrivalPort != null && finalActualDeparturePort != null && finalActualDeparturePort.isBefore(finalActualArrivalPort)) {
+            throw new BadRequestException("DATE_ORDER", "La fecha real de salida de puerto no puede ser anterior a la fecha real de arribo a puerto.");
+        }
+        if (finalActualDeparturePort != null && finalActualArrivalWarehouse != null && finalActualArrivalWarehouse.isBefore(finalActualDeparturePort)) {
+            throw new BadRequestException("DATE_ORDER", "La fecha real de arribo a bodega no puede ser anterior a la fecha real de salida de puerto.");
+        }
+
+        if (estimatedDepartureChanging) {
+            recordChange(id, "estimatedDepartureDate", container.getEstimatedDepartureDate(), request.getEstimatedDepartureDate(), editorId, reason, changedFields);
+            container.setEstimatedDepartureDate(request.getEstimatedDepartureDate());
+        }
+        if (estimatedArrivalPortChanging) {
+            recordChange(id, "estimatedArrivalPort", container.getEstimatedArrivalPort(), request.getEstimatedArrivalPort(), editorId, reason, changedFields);
+            container.setEstimatedArrivalPort(request.getEstimatedArrivalPort());
+        }
+        if (actualDepartureChanging) {
+            recordChange(id, "actualDepartureDate", container.getActualDepartureDate(), request.getActualDepartureDate(), editorId, reason, changedFields);
+            container.setActualDepartureDate(request.getActualDepartureDate());
+        }
+        if (actualArrivalPortChanging) {
+            recordChange(id, "actualArrivalPort", container.getActualArrivalPort(), request.getActualArrivalPort(), editorId, reason, changedFields);
+            container.setActualArrivalPort(request.getActualArrivalPort());
+        }
+        if (actualDeparturePortChanging) {
+            recordChange(id, "actualDeparturePort", container.getActualDeparturePort(), request.getActualDeparturePort(), editorId, reason, changedFields);
+            container.setActualDeparturePort(request.getActualDeparturePort());
+        }
+        if (estimatedArrivalWarehouseChanging) {
+            recordChange(id, "estimatedArrivalWarehouse", container.getEstimatedArrivalWarehouse(), request.getEstimatedArrivalWarehouse(), editorId, reason, changedFields);
+            container.setEstimatedArrivalWarehouse(request.getEstimatedArrivalWarehouse());
+        }
+        if (actualArrivalWarehouseChanging) {
+            recordChange(id, "actualArrivalWarehouse", container.getActualArrivalWarehouse(), request.getActualArrivalWarehouse(), editorId, reason, changedFields);
+            container.setActualArrivalWarehouse(request.getActualArrivalWarehouse());
+        }
+        if (freeDaysLimitChanging) {
+            recordChange(id, "freeDaysLimit", container.getFreeDaysLimit(), request.getFreeDaysLimit(), editorId, reason, changedFields);
+            container.setFreeDaysLimit(request.getFreeDaysLimit());
+        }
+        if (freeDaysExpiryChanging) {
+            recordChange(id, "freeDaysExpiry", container.getFreeDaysExpiry(), request.getFreeDaysExpiry(), editorId, reason, changedFields);
+            container.setFreeDaysExpiry(request.getFreeDaysExpiry());
+        }
     }
 
     @Transactional
@@ -334,6 +430,11 @@ public class ContainerService {
                 if (request.getActualArrivalPort().isAfter(now)) {
                     throw new BadRequestException("FUTURE_DATE", "La fecha real de arribo a puerto no puede estar en el futuro.");
                 }
+                if (container.getActualDepartureDate() != null
+                        && request.getActualArrivalPort().isBefore(container.getActualDepartureDate())) {
+                    throw new BadRequestException("DATE_ORDER",
+                            "La fecha real de arribo a puerto no puede ser anterior a la fecha real de salida.");
+                }
                 container.setActualArrivalPort(request.getActualArrivalPort());
                 int freeDays = request.getFreeDaysLimitOverride() != null
                         ? request.getFreeDaysLimitOverride() : container.getFreeDaysLimit();
@@ -355,6 +456,11 @@ public class ContainerService {
                 if (request.getActualDeparturePort().isAfter(now)) {
                     throw new BadRequestException("FUTURE_DATE", "La fecha real de salida de puerto no puede estar en el futuro.");
                 }
+                if (container.getActualArrivalPort() != null
+                        && request.getActualDeparturePort().isBefore(container.getActualArrivalPort())) {
+                    throw new BadRequestException("DATE_ORDER",
+                            "La fecha real de salida de puerto no puede ser anterior a la fecha real de arribo a puerto.");
+                }
                 container.setActualDeparturePort(request.getActualDeparturePort());
                 if (request.getEstimatedArrivalWarehouse() != null) {
                     container.setEstimatedArrivalWarehouse(request.getEstimatedArrivalWarehouse());
@@ -366,6 +472,11 @@ public class ContainerService {
                 }
                 if (request.getActualArrivalWarehouse().isAfter(now)) {
                     throw new BadRequestException("FUTURE_DATE", "La fecha real de arribo a bodega no puede estar en el futuro.");
+                }
+                if (container.getActualDeparturePort() != null
+                        && request.getActualArrivalWarehouse().isBefore(container.getActualDeparturePort())) {
+                    throw new BadRequestException("DATE_ORDER",
+                            "La fecha real de arribo a bodega no puede ser anterior a la fecha real de salida de puerto.");
                 }
                 container.setActualArrivalWarehouse(request.getActualArrivalWarehouse());
             }
@@ -398,8 +509,16 @@ public class ContainerService {
                 throw new ForbiddenException("ROLE_NOT_ALLOWED",
                         "El rol WAREHOUSE solo puede registrar el arribo a bodega.");
             }
+            return;
         }
-        // ADMIN and OPERATOR can perform any transition up through ARRIVED_WAREHOUSE (per CU-05.4).
+        // ADMIN and OPERATOR can advance the container up through DEPARTED_PORT only —
+        // arriving at warehouse and discharging close out the cycle and are reserved for
+        // the assigned WAREHOUSE user, even for ADMIN. This mirrors the real org chart:
+        // bodega is the one who signs off on what physically arrived.
+        if (target == ContainerStatus.ARRIVED_WAREHOUSE) {
+            throw new ForbiddenException("ROLE_NOT_ALLOWED",
+                    "Solo el responsable de bodega puede registrar el arribo a bodega.");
+        }
     }
 
     /**
@@ -468,6 +587,7 @@ public class ContainerService {
                         .updatedById(fc.getUpdatedBy())
                         .updatedByName(userRepository.findById(fc.getUpdatedBy()).map(User::getFullName).orElse(null))
                         .updatedAt(fc.getUpdatedAt())
+                        .reason(fc.getReason())
                         .build())
                 .collect(Collectors.toList()));
 

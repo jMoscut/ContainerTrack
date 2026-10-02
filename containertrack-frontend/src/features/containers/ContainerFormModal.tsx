@@ -15,7 +15,7 @@ import { portsApi } from "../../api/portsApi";
 import { landCarriersApi } from "../../api/landCarriersApi";
 import { containersApi } from "../../api/containersApi";
 import { CONTAINER_NUMBER_EXAMPLE, CONTAINER_NUMBER_REGEX } from "../../utils/containerValidator";
-import { toIsoDate, fromGuatemalaDateInputValue } from "../../utils/dateFormat";
+import { fromGuatemalaDateInputValue } from "../../utils/dateFormat";
 import type { ApiError } from "../../types/auth";
 
 interface ContainerFormModalProps {
@@ -52,10 +52,10 @@ export function ContainerFormModal({ isOpen, onClose }: ContainerFormModalProps)
         destinationPort: z.string().min(1, t("containerForm.required")),
         cargoDescription: z.string().min(1, t("containerForm.required")).max(500, t("containerForm.max500")),
         responsibleOperatorId: z.string().min(1, t("containerForm.selectOperator")),
-        estimatedDepartureDate: z
-          .string()
-          .min(1, t("containerForm.required"))
-          .refine((v) => v >= toIsoDate(new Date()), t("containerForm.noPastDates")),
+        // No restriction against past dates here on purpose: containers are sometimes
+        // registered retroactively (the whole lifecycle already happened and only the
+        // record is being entered for history), so a past estimated departure is valid.
+        estimatedDepartureDate: z.string().min(1, t("containerForm.required")),
         internalNotes: z.string().max(1000, t("containerForm.max1000")).optional(),
       }),
     [t],
@@ -246,7 +246,6 @@ export function ContainerFormModal({ isOpen, onClose }: ContainerFormModalProps)
           id="estimatedDepartureDate"
           type="date"
           label={t("containerForm.estimatedDepartureDate")}
-          min={toIsoDate(new Date())}
           error={errors.estimatedDepartureDate?.message}
           {...register("estimatedDepartureDate")}
         />

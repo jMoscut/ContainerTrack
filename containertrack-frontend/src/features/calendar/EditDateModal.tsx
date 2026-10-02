@@ -4,7 +4,7 @@ import { isAxiosError } from "axios";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/ui/Modal";
-import { Button, Input } from "../../components/ui";
+import { Button, Input, Textarea } from "../../components/ui";
 import { containersApi } from "../../api/containersApi";
 import { toGuatemalaDateInputValue, fromGuatemalaDateInputValue } from "../../utils/dateFormat";
 import type { ApiError } from "../../types/auth";
@@ -39,12 +39,14 @@ export function EditDateModal({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [value, setValue] = useState(() => toGuatemalaDateInputValue(currentValue));
+  const [reason, setReason] = useState("");
 
   const mutation = useMutation({
     mutationFn: () => {
       const payload: UpdateContainerRequest = {
         version: containerVersion,
         [fieldName]: fromGuatemalaDateInputValue(value),
+        dateChangeReason: reason.trim(),
       };
       return containersApi.update(containerId, payload);
     },
@@ -75,6 +77,10 @@ export function EditDateModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!reason.trim()) {
+      toast.error(t("containerDetail.dateChangeReasonRequired"));
+      return;
+    }
     mutation.mutate();
   };
 
@@ -102,6 +108,14 @@ export function EditDateModal({
           required
           value={value}
           onChange={(e) => setValue(e.target.value)}
+        />
+        <Textarea
+          label={t("containerDetail.dateChangeReason")}
+          maxLength={500}
+          rows={2}
+          required
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
         />
       </form>
     </Modal>

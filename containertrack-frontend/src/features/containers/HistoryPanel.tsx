@@ -111,6 +111,11 @@ export function HistoryPanel({ containerId }: HistoryPanelProps) {
                           {change.updatedByName ?? t("containerDetail.notAvailable")} —{" "}
                           {formatDateTime(change.updatedAt)}
                         </p>
+                        {change.reason && (
+                          <p className="mt-1 text-xs italic text-gray-600">
+                            {t("history.reason")}: {change.reason}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>

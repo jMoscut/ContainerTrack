@@ -49,7 +49,7 @@ public class ContainerPhotoController {
     }
 
     @PostMapping("/discharge")
-    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
+    @PreAuthorize("hasRole('WAREHOUSE')")
     public ResponseEntity<ContainerDTO> discharge(@PathVariable Long id, @Valid @RequestBody DischargeRequest request,
                                                     @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(dischargeService.discharge(id, request, principal.getId()));

@@ -5,6 +5,8 @@
     "close": "Cerrar",
     "edit": "Editar",
     "view": "Ver",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
     "delete": "Eliminar",
     "activate": "Activar",
     "deactivate": "Desactivar",
@@ -154,6 +156,7 @@
     "destinationPort": "Puerto de destino",
     "estimatedDepartureDate": "Fecha estimada de salida",
     "actualDepartureDate": "Fecha real de salida de origen",
+    "estimatedArrivalPort": "Fecha estimada de llegada a puerto",
     "actualArrivalPort": "Fecha real de llegada a puerto",
     "freeDaysLimit": "Días libres",
     "freeDaysExpiry": "Vencimiento días libres",
@@ -162,6 +165,8 @@
     "actualArrivalWarehouse": "Fecha real de llegada a bodega",
     "cargoDescription": "Descripción de la carga",
     "internalNotes": "Notas internas",
+    "dateChangeReason": "Motivo del cambio de fecha",
+    "dateChangeReasonRequired": "Debés indicar el motivo del cambio de fecha.",
     "dischargeStart": "Inicio de descarga",
     "dischargeEnd": "Fin de descarga",
     "dischargeNotes": "Notas de descarga",
@@ -219,7 +224,8 @@
     "statusChanges": "Cambios de estado",
     "noStatusChanges": "Sin cambios de estado registrados.",
     "fieldChanges": "Cambios de campos",
-    "noFieldChanges": "Sin cambios de campos registrados."
+    "noFieldChanges": "Sin cambios de campos registrados.",
+    "reason": "Motivo"
   },
   "photos": {
     "title": "Evidencia fotográfica",

@@ -36,6 +36,10 @@ public class ContainerFieldChange {
     @Column(name = "updated_by", nullable = false)
     private Long updatedBy;
 
+    /** Required when the field being changed is a lifecycle date — why it was corrected. */
+    @Column(columnDefinition = "TEXT")
+    private String reason;
+
     @CreationTimestamp
     @Column(name = "updated_at", nullable = false, updatable = false)
     private OffsetDateTime updatedAt;

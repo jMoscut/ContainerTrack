@@ -78,6 +78,7 @@ class DischargeServiceTest {
                 .id(1L)
                 .containerNumber("MSKU1234565")
                 .status(ContainerStatus.ARRIVED_WAREHOUSE)
+                .warehouseAssigneeId(1L)
                 .build();
         when(containerRepository.findById(1L)).thenReturn(Optional.of(container));
         when(containerPhotoRepository.countByContainerId(1L)).thenReturn(0L);
@@ -95,6 +96,7 @@ class DischargeServiceTest {
                 .id(1L)
                 .containerNumber("MSKU1234565")
                 .status(ContainerStatus.ARRIVED_WAREHOUSE)
+                .warehouseAssigneeId(1L)
                 .build();
         when(containerRepository.findById(1L)).thenReturn(Optional.of(container));
         when(containerPhotoRepository.countByContainerId(1L)).thenReturn(1L);

@@ -54,7 +54,16 @@ export function ContainerDetailPage() {
     cargoDescription: string;
     responsibleOperatorId: string;
     estimatedDepartureDate: string;
+    actualDepartureDate: string;
+    estimatedArrivalPort: string;
+    actualArrivalPort: string;
+    actualDeparturePort: string;
+    estimatedArrivalWarehouse: string;
+    actualArrivalWarehouse: string;
+    freeDaysLimit: string;
+    freeDaysExpiry: string;
     internalNotes: string;
+    dateChangeReason: string;
   } | null>(null);
 
   const { data: container, isLoading } = useQuery({
@@ -189,13 +198,44 @@ export function ContainerDetailPage() {
       cargoDescription: container.cargoDescription ?? "",
       responsibleOperatorId: container.responsibleOperatorId,
       estimatedDepartureDate: toGuatemalaDateInputValue(container.estimatedDepartureDate),
+      actualDepartureDate: toGuatemalaDateInputValue(container.actualDepartureDate),
+      estimatedArrivalPort: toGuatemalaDateInputValue(container.estimatedArrivalPort),
+      actualArrivalPort: toGuatemalaDateInputValue(container.actualArrivalPort),
+      actualDeparturePort: toGuatemalaDateInputValue(container.actualDeparturePort),
+      estimatedArrivalWarehouse: toGuatemalaDateInputValue(container.estimatedArrivalWarehouse),
+      actualArrivalWarehouse: toGuatemalaDateInputValue(container.actualArrivalWarehouse),
+      freeDaysLimit: container.freeDaysLimit?.toString() ?? "",
+      freeDaysExpiry: toGuatemalaDateInputValue(container.freeDaysExpiry),
       internalNotes: container.internalNotes ?? "",
+      dateChangeReason: "",
     });
     setIsEditing(true);
   };
 
+  // Fields below are the ones that require a justification (dateChangeReason) when changed —
+  // lifecycle dates and free-days, corrected after the fact for retroactively-registered containers.
+  const dateFieldsChanged = (): boolean => {
+    if (!container || !form) return false;
+    return (
+      form.estimatedDepartureDate !== toGuatemalaDateInputValue(container.estimatedDepartureDate) ||
+      form.actualDepartureDate !== toGuatemalaDateInputValue(container.actualDepartureDate) ||
+      form.estimatedArrivalPort !== toGuatemalaDateInputValue(container.estimatedArrivalPort) ||
+      form.actualArrivalPort !== toGuatemalaDateInputValue(container.actualArrivalPort) ||
+      form.actualDeparturePort !== toGuatemalaDateInputValue(container.actualDeparturePort) ||
+      form.estimatedArrivalWarehouse !== toGuatemalaDateInputValue(container.estimatedArrivalWarehouse) ||
+      form.actualArrivalWarehouse !== toGuatemalaDateInputValue(container.actualArrivalWarehouse) ||
+      form.freeDaysLimit !== (container.freeDaysLimit?.toString() ?? "") ||
+      form.freeDaysExpiry !== toGuatemalaDateInputValue(container.freeDaysExpiry)
+    );
+  };
+
   const handleSave = () => {
     if (!container || !form) return;
+    const datesChanged = dateFieldsChanged();
+    if (datesChanged && !form.dateChangeReason.trim()) {
+      toast.error(t("containerDetail.dateChangeReasonRequired"));
+      return;
+    }
     const payload: UpdateContainerRequest = { version: container.version };
     if (form.blNumber !== container.blNumber) payload.blNumber = form.blNumber;
     // Backend fields are Long — normalize both sides to number before comparing/sending,
@@ -209,9 +249,29 @@ export function ContainerDetailPage() {
     if (form.cargoDescription !== (container.cargoDescription ?? "")) payload.cargoDescription = form.cargoDescription;
     if (Number(form.responsibleOperatorId) !== Number(container.responsibleOperatorId))
       payload.responsibleOperatorId = Number(form.responsibleOperatorId);
-    if (form.estimatedDepartureDate !== toGuatemalaDateInputValue(container.estimatedDepartureDate))
+    if (form.estimatedDepartureDate !== toGuatemalaDateInputValue(container.estimatedDepartureDate) && form.estimatedDepartureDate)
       payload.estimatedDepartureDate = fromGuatemalaDateInputValue(form.estimatedDepartureDate);
+    if (form.actualDepartureDate !== toGuatemalaDateInputValue(container.actualDepartureDate) && form.actualDepartureDate)
+      payload.actualDepartureDate = fromGuatemalaDateInputValue(form.actualDepartureDate);
+    if (form.estimatedArrivalPort !== toGuatemalaDateInputValue(container.estimatedArrivalPort) && form.estimatedArrivalPort)
+      payload.estimatedArrivalPort = fromGuatemalaDateInputValue(form.estimatedArrivalPort);
+    if (form.actualArrivalPort !== toGuatemalaDateInputValue(container.actualArrivalPort) && form.actualArrivalPort)
+      payload.actualArrivalPort = fromGuatemalaDateInputValue(form.actualArrivalPort);
+    if (form.actualDeparturePort !== toGuatemalaDateInputValue(container.actualDeparturePort) && form.actualDeparturePort)
+      payload.actualDeparturePort = fromGuatemalaDateInputValue(form.actualDeparturePort);
+    if (
+      form.estimatedArrivalWarehouse !== toGuatemalaDateInputValue(container.estimatedArrivalWarehouse) &&
+      form.estimatedArrivalWarehouse
+    )
+      payload.estimatedArrivalWarehouse = fromGuatemalaDateInputValue(form.estimatedArrivalWarehouse);
+    if (form.actualArrivalWarehouse !== toGuatemalaDateInputValue(container.actualArrivalWarehouse) && form.actualArrivalWarehouse)
+      payload.actualArrivalWarehouse = fromGuatemalaDateInputValue(form.actualArrivalWarehouse);
+    if (form.freeDaysLimit !== (container.freeDaysLimit?.toString() ?? "") && form.freeDaysLimit)
+      payload.freeDaysLimit = Number(form.freeDaysLimit);
+    if (form.freeDaysExpiry !== toGuatemalaDateInputValue(container.freeDaysExpiry) && form.freeDaysExpiry)
+      payload.freeDaysExpiry = fromGuatemalaDateInputValue(form.freeDaysExpiry);
     if (form.internalNotes !== (container.internalNotes ?? "")) payload.internalNotes = form.internalNotes;
+    if (datesChanged) payload.dateChangeReason = form.dateChangeReason.trim();
 
     updateMutation.mutate(payload);
   };
@@ -391,6 +451,54 @@ export function ContainerDetailPage() {
               value={form.estimatedDepartureDate}
               onChange={(e) => setForm({ ...form, estimatedDepartureDate: e.target.value })}
             />
+            <Input
+              type="date"
+              label={t("containerDetail.actualDepartureDate")}
+              value={form.actualDepartureDate}
+              onChange={(e) => setForm({ ...form, actualDepartureDate: e.target.value })}
+            />
+            <Input
+              type="date"
+              label={t("containerDetail.estimatedArrivalPort")}
+              value={form.estimatedArrivalPort}
+              onChange={(e) => setForm({ ...form, estimatedArrivalPort: e.target.value })}
+            />
+            <Input
+              type="date"
+              label={t("containerDetail.actualArrivalPort")}
+              value={form.actualArrivalPort}
+              onChange={(e) => setForm({ ...form, actualArrivalPort: e.target.value })}
+            />
+            <Input
+              type="date"
+              label={t("containerDetail.actualDeparturePort")}
+              value={form.actualDeparturePort}
+              onChange={(e) => setForm({ ...form, actualDeparturePort: e.target.value })}
+            />
+            <Input
+              type="date"
+              label={t("containerDetail.estimatedArrivalWarehouse")}
+              value={form.estimatedArrivalWarehouse}
+              onChange={(e) => setForm({ ...form, estimatedArrivalWarehouse: e.target.value })}
+            />
+            <Input
+              type="date"
+              label={t("containerDetail.actualArrivalWarehouse")}
+              value={form.actualArrivalWarehouse}
+              onChange={(e) => setForm({ ...form, actualArrivalWarehouse: e.target.value })}
+            />
+            <Input
+              type="number"
+              label={t("containerDetail.freeDaysLimit")}
+              value={form.freeDaysLimit}
+              onChange={(e) => setForm({ ...form, freeDaysLimit: e.target.value })}
+            />
+            <Input
+              type="date"
+              label={t("containerDetail.freeDaysExpiry")}
+              value={form.freeDaysExpiry}
+              onChange={(e) => setForm({ ...form, freeDaysExpiry: e.target.value })}
+            />
             <Select
               label={t("containerDetail.landCarrier")}
               value={form.landCarrierId}
@@ -419,6 +527,17 @@ export function ContainerDetailPage() {
               value={form.internalNotes}
               onChange={(e) => setForm({ ...form, internalNotes: e.target.value })}
             />
+            {dateFieldsChanged() && (
+              <Textarea
+                label={t("containerDetail.dateChangeReason")}
+                maxLength={500}
+                rows={2}
+                required
+                className="sm:col-span-2"
+                value={form.dateChangeReason}
+                onChange={(e) => setForm({ ...form, dateChangeReason: e.target.value })}
+              />
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">

@@ -92,10 +92,18 @@ export type UpdateContainerRequest = Partial<
   landCarrierId?: number;
   responsibleOperatorId?: number;
   version: number;
-  // Additional editable estimate fields, not part of container creation but
-  // patchable afterwards (e.g. from the calendar's inline date-edit modal).
+  // Lifecycle dates are normally set via /transition as the container progresses, but
+  // can be corrected here afterwards (e.g. retroactively-registered containers whose
+  // full history is already known). Any such correction requires dateChangeReason.
+  estimatedArrivalPort?: string;
+  actualDepartureDate?: string;
+  actualArrivalPort?: string;
+  actualDeparturePort?: string;
   estimatedArrivalWarehouse?: string;
+  actualArrivalWarehouse?: string;
+  freeDaysLimit?: number;
   freeDaysExpiry?: string;
+  dateChangeReason?: string;
 };
 
 export interface TransitionRequest {
@@ -124,6 +132,7 @@ export interface HistoryEntry {
   updatedById: string;
   updatedByName: string | null;
   updatedAt: string;
+  reason: string | null;
 }
 
 export type ContainerHistory = HistoryEntry[];

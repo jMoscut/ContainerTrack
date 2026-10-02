@@ -41,6 +41,14 @@ public class DischargeService {
         Container container = containerRepository.findById(containerId)
                 .orElseThrow(() -> new com.containertrack.exception.NotFoundException("Contenedor no encontrado."));
 
+        // Only the WAREHOUSE user specifically assigned to this container may close it —
+        // @PreAuthorize already restricts this endpoint to role WAREHOUSE, but that alone
+        // would let any warehouse user discharge any container, not just their own.
+        if (container.getWarehouseAssigneeId() == null || !container.getWarehouseAssigneeId().equals(performedBy)) {
+            throw new com.containertrack.exception.ForbiddenException("NOT_ASSIGNED",
+                    "No estás asignado como responsable de bodega de este contenedor.");
+        }
+
         stateMachine.validateDischarge(container.getStatus());
 
         long photoCount = containerPhotoRepository.countByContainerId(containerId);
@@ -50,6 +58,11 @@ public class DischargeService {
 
         if (request.getDischargeEndAt().isBefore(request.getDischargeStartAt())) {
             throw new BadRequestException("INVALID_DISCHARGE_WINDOW", "La fecha de fin de descarga debe ser posterior o igual a la de inicio.");
+        }
+        if (container.getActualArrivalWarehouse() != null
+                && request.getDischargeStartAt().isBefore(container.getActualArrivalWarehouse())) {
+            throw new BadRequestException("DATE_ORDER",
+                    "La fecha de inicio de descarga no puede ser anterior a la fecha real de arribo a bodega.");
         }
 
         ContainerStatus previousStatus = container.getStatus();

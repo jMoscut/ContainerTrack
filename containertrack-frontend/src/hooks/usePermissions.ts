@@ -4,13 +4,19 @@ import type { Role } from "../types/auth";
 import type { ContainerStatus } from "../types/container";
 import { CONTAINER_STATUS_ORDER } from "../types/container";
 
-/** Maps each status to the role(s) allowed to perform the transition OUT of it. */
+/**
+ * Maps each status to the role(s) allowed to perform the transition OUT of it.
+ * DEPARTED_PORT → ARRIVED_WAREHOUSE (arriving at warehouse) and ARRIVED_WAREHOUSE →
+ * DISCHARGED (closing it out) are both WAREHOUSE-only, even for ADMIN: ADMIN can
+ * manage everything up through the container leaving port — same ceiling as OPERATOR —
+ * but doesn't sign off on what physically arrived at warehouse or get to close the cycle.
+ */
 const TRANSITION_ROLES: Record<ContainerStatus, Role[]> = {
   REGISTERED: ["ADMIN", "OPERATOR"],
   DEPARTED_ORIGIN: ["ADMIN", "OPERATOR"],
   ARRIVED_PORT: ["ADMIN", "OPERATOR"],
-  DEPARTED_PORT: ["ADMIN", "OPERATOR"],
-  ARRIVED_WAREHOUSE: ["ADMIN", "WAREHOUSE"],
+  DEPARTED_PORT: ["WAREHOUSE"],
+  ARRIVED_WAREHOUSE: ["WAREHOUSE"],
   DISCHARGED: [],
 };
 

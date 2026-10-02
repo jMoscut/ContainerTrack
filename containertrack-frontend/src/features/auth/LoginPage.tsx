@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { useTranslation } from "react-i18next";
 import { Ship, ShieldCheck, MapPin } from "lucide-react";
-import { Button, Input } from "../../components/ui";
+import { Button, Input, PasswordToggleButton } from "../../components/ui";
 import { useAuth } from "../../store/AuthContext";
 import type { ApiError } from "../../types/auth";
 
@@ -34,6 +34,7 @@ export function LoginPage() {
   const { t } = useTranslation();
   const [serverError, setServerError] = useState<string | null>(null);
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const remainingSeconds = useCountdown(lockedUntil);
 
   // Re-derived on language change so validation messages follow the active locale.
@@ -132,10 +133,13 @@ export function LoginPage() {
             />
             <Input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               label={t("login.password")}
               autoComplete="current-password"
               error={errors.password?.message}
+              rightElement={
+                <PasswordToggleButton visible={showPassword} onToggle={() => setShowPassword((v) => !v)} />
+              }
               {...register("password")}
             />
 

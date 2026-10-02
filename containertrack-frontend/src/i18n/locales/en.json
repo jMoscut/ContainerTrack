@@ -5,6 +5,8 @@
     "close": "Close",
     "edit": "Edit",
     "view": "View",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "delete": "Delete",
     "activate": "Activate",
     "deactivate": "Deactivate",
@@ -154,6 +156,7 @@
     "destinationPort": "Destination port",
     "estimatedDepartureDate": "Estimated departure date",
     "actualDepartureDate": "Actual departure date from origin",
+    "estimatedArrivalPort": "Estimated arrival date at port",
     "actualArrivalPort": "Actual arrival date at port",
     "freeDaysLimit": "Free days",
     "freeDaysExpiry": "Free days expiry",
@@ -162,6 +165,8 @@
     "actualArrivalWarehouse": "Actual warehouse arrival date",
     "cargoDescription": "Cargo description",
     "internalNotes": "Internal notes",
+    "dateChangeReason": "Reason for date change",
+    "dateChangeReasonRequired": "You must provide a reason for the date change.",
     "dischargeStart": "Discharge start",
     "dischargeEnd": "Discharge end",
     "dischargeNotes": "Discharge notes",
@@ -219,7 +224,8 @@
     "statusChanges": "Status changes",
     "noStatusChanges": "No status changes recorded.",
     "fieldChanges": "Field changes",
-    "noFieldChanges": "No field changes recorded."
+    "noFieldChanges": "No field changes recorded.",
+    "reason": "Reason"
   },
   "photos": {
     "title": "Photo evidence",

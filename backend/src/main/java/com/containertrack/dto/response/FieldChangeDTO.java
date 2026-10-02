@@ -19,4 +19,5 @@ public class FieldChangeDTO {
     private Long updatedById;
     private String updatedByName;
     private OffsetDateTime updatedAt;
+    private String reason;
 }

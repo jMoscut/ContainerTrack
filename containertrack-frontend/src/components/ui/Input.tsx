@@ -1,15 +1,17 @@
 import { forwardRef } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  /** Optional element (e.g. a show/hide password toggle button) rendered inside the field, right-aligned. */
+  rightElement?: ReactNode;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, id, className = "", ...rest },
+  { label, error, hint, id, className = "", rightElement, ...rest },
   ref,
 ) {
   return (
@@ -19,14 +21,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           {label}
         </label>
       )}
-      <input
-        id={id}
-        ref={ref}
-        className={`rounded-md border border-sage bg-white px-3 py-2 text-sm text-dark-brown outline-none transition-all duration-150 ease-out placeholder:text-gray-400 focus:border-accent focus:ring-2 focus:ring-accent/40 disabled:bg-gray-100 disabled:text-gray-400 ${
-          error ? "border-[#C0392B] focus:border-[#C0392B] focus:ring-[#C0392B]/30" : ""
-        } ${className}`}
-        {...rest}
-      />
+      <div className="relative">
+        <input
+          id={id}
+          ref={ref}
+          className={`w-full rounded-md border border-sage bg-white px-3 py-2 text-sm text-dark-brown outline-none transition-all duration-150 ease-out placeholder:text-gray-400 focus:border-accent focus:ring-2 focus:ring-accent/40 disabled:bg-gray-100 disabled:text-gray-400 ${
+            rightElement ? "pr-10" : ""
+          } ${error ? "border-[#C0392B] focus:border-[#C0392B] focus:ring-[#C0392B]/30" : ""} ${className}`}
+          {...rest}
+        />
+        {rightElement && (
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2">{rightElement}</div>
+        )}
+      </div>
       {hint && !error && <span className="text-xs text-gray-500">{hint}</span>}
       {error && (
         <span className="flex items-center gap-1 text-xs font-medium text-[#C0392B]">

@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { Button, Input } from "../../components/ui";
+import { Button, Input, PasswordToggleButton } from "../../components/ui";
 import { authApi } from "../../api/authApi";
 import { useAuth } from "../../store/AuthContext";
 import type { ApiError } from "../../types/auth";
@@ -17,6 +17,9 @@ export function ChangePasswordPage() {
   const { markPasswordChanged, logout } = useAuth();
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const passwordSchema = useMemo(
     () =>
@@ -86,18 +89,27 @@ export function ChangePasswordPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Input
             id="currentPassword"
-            type="password"
+            type={showCurrentPassword ? "text" : "password"}
             label={t("changePassword.currentPassword")}
             autoComplete="current-password"
             error={errors.currentPassword?.message}
+            rightElement={
+              <PasswordToggleButton
+                visible={showCurrentPassword}
+                onToggle={() => setShowCurrentPassword((v) => !v)}
+              />
+            }
             {...register("currentPassword")}
           />
           <Input
             id="newPassword"
-            type="password"
+            type={showNewPassword ? "text" : "password"}
             label={t("changePassword.newPassword")}
             autoComplete="new-password"
             error={errors.newPassword?.message}
+            rightElement={
+              <PasswordToggleButton visible={showNewPassword} onToggle={() => setShowNewPassword((v) => !v)} />
+            }
             {...register("newPassword")}
           />
 
@@ -126,10 +138,16 @@ export function ChangePasswordPage() {
 
           <Input
             id="confirmPassword"
-            type="password"
+            type={showConfirmPassword ? "text" : "password"}
             label={t("changePassword.confirmPassword")}
             autoComplete="new-password"
             error={errors.confirmPassword?.message}
+            rightElement={
+              <PasswordToggleButton
+                visible={showConfirmPassword}
+                onToggle={() => setShowConfirmPassword((v) => !v)}
+              />
+            }
             {...register("confirmPassword")}
           />
 
