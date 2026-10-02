@@ -80,10 +80,11 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL_PROD }}
 
       - name: Deploy a Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        # cloudflare/pages-action fue archivada (2024-10-21); el reemplazo oficial
+        # es wrangler-action con el comando "pages deploy".
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: containertrack
-          directory: containertrack-frontend/dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          workingDirectory: containertrack-frontend
+          command: pages deploy dist --project-name=containertrack

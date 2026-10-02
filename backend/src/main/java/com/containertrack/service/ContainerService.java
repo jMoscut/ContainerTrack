@@ -264,7 +264,7 @@ public class ContainerService {
             recordChange(id, "responsibleOperatorId", container.getResponsibleOperatorId(), request.getResponsibleOperatorId(), editorId, null, changedFields);
             container.setResponsibleOperatorId(request.getResponsibleOperatorId());
         }
-        applyDateCorrections(id, request, container, editorId, null, changedFields);
+        applyDateCorrections(id, request, container, editorId, changedFields);
 
         if (request.getInternalNotes() != null && !Objects.equals(request.getInternalNotes(), container.getInternalNotes())) {
             recordChange(id, "internalNotes", container.getInternalNotes(), request.getInternalNotes(), editorId, null, changedFields);
