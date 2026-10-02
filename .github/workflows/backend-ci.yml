@@ -48,14 +48,14 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - name: Instalar Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy a Railway
+        # Se corre desde la raiz del repo (no desde backend/) porque el servicio
+        # en Railway tiene configurado Root Directory = "backend": el CLI debe subir
+        # el repo completo para que esa subcarpeta exista en el source subido.
         run: railway up --service ContainerTrack --ci
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
