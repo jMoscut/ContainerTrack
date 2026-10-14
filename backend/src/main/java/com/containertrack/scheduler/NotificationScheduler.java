@@ -5,10 +5,11 @@ import com.containertrack.repository.*;
 import com.containertrack.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
@@ -18,9 +19,16 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Runs every 30 minutes; evaluates 6 notification rules over all active containers
- * and sends (or logs/retries) the corresponding emails, with idempotency guaranteed
- * by checking notification_log for an existing SENT row per (container, type, recipient).
+ * Evaluates 6 notification rules over all active containers and sends (or logs/retries)
+ * the corresponding emails, with idempotency guaranteed by checking notification_log for
+ * an existing SENT row per (container, type, recipient).
+ *
+ * Not run on a fixed interval (@Scheduled): that polled the DB every 30 minutes forever,
+ * which kept the Neon compute endpoint from ever auto-suspending, racking up compute-hours
+ * even with near-zero real usage. Instead, NotificationSchedulerConfig drives this off a
+ * dynamic Trigger that reads nextRunAt, which run() recomputes each time based on how close
+ * the nearest upcoming container date actually is — far from any deadline, checks happen
+ * every few hours; close to one, checks tighten up so the 1h/2h warehouse windows aren't missed.
  */
 @Component
 @RequiredArgsConstructor
@@ -29,12 +37,27 @@ public class NotificationScheduler {
 
     private static final int MAX_RETRIES = 3;
 
+    // Largest notification window (ARRIVAL_PORT_48H) — once the nearest container date is
+    // within this horizon, we switch from sparse to tight polling so no window is missed.
+    private static final Duration RELEVANCE_HORIZON = Duration.ofHours(48);
+    private static final Duration TIGHT_POLL_INTERVAL = Duration.ofMinutes(15);
+    // Upper bound on how long we'll ever sleep — bounds the delay before a brand-new
+    // container (created after the last run) gets its first notification check.
+    private static final Duration MAX_SLEEP = Duration.ofHours(6);
+
     private final ContainerRepository containerRepository;
     private final UserRepository userRepository;
     private final NotificationLogRepository notificationLogRepository;
     private final EmailService emailService;
 
-    @Scheduled(fixedRate = 1800000)
+    // Read by NotificationSchedulerConfig's Trigger to decide when to run next.
+    // Starts at "now" so the app's first run happens immediately on startup.
+    private volatile Instant nextRunAt = Instant.now();
+
+    public Instant getNextRunAt() {
+        return nextRunAt;
+    }
+
     @Transactional
     public void run() {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
@@ -66,6 +89,44 @@ public class NotificationScheduler {
                         "WAREHOUSE_1H", warehouseAndOperator, "warehouse-arrival");
             }
         }
+
+        nextRunAt = computeNextRunTime(activeContainers, now);
+    }
+
+    /**
+     * Reuses the same container list fetched above instead of querying again — picks the
+     * closest upcoming date among the fields any rule cares about, then decides how long
+     * it's safe to sleep before checking again.
+     */
+    private Instant computeNextRunTime(List<Container> activeContainers, OffsetDateTime now) {
+        OffsetDateTime nearest = null;
+        for (Container container : activeContainers) {
+            nearest = earliestFuture(nearest, container.getEstimatedArrivalPort(), now);
+            nearest = earliestFuture(nearest, container.getFreeDaysExpiry(), now);
+            nearest = earliestFuture(nearest, container.getEstimatedArrivalWarehouse(), now);
+        }
+
+        if (nearest == null) {
+            return now.plus(MAX_SLEEP).toInstant();
+        }
+
+        Duration untilNearest = Duration.between(now, nearest);
+        if (untilNearest.compareTo(RELEVANCE_HORIZON) > 0) {
+            Duration sleep = untilNearest.minus(RELEVANCE_HORIZON);
+            return now.plus(sleep.compareTo(MAX_SLEEP) < 0 ? sleep : MAX_SLEEP).toInstant();
+        }
+
+        return now.plus(TIGHT_POLL_INTERVAL).toInstant();
+    }
+
+    private OffsetDateTime earliestFuture(OffsetDateTime current, OffsetDateTime candidate, OffsetDateTime now) {
+        if (candidate == null || candidate.isBefore(now)) {
+            return current;
+        }
+        if (current == null || candidate.isBefore(current)) {
+            return candidate;
+        }
+        return current;
     }
 
     private Set<User> operatorAndAdmins(User operator, List<User> admins) {

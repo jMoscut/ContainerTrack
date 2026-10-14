@@ -422,6 +422,7 @@ public class ContainerService {
                 if (request.getEstimatedArrivalPort() != null) {
                     container.setEstimatedArrivalPort(request.getEstimatedArrivalPort());
                 }
+                updateDelayFlag(container, container.getEstimatedDepartureDate(), request.getActualDepartureDate());
             }
             case ARRIVED_PORT -> {
                 if (request.getActualArrivalPort() == null) {
@@ -441,13 +442,7 @@ public class ContainerService {
                 container.setFreeDaysLimit(freeDays);
                 container.setFreeDaysExpiry(addCalendarDays(request.getActualArrivalPort(), freeDays));
 
-                if (container.getEstimatedArrivalPort() != null) {
-                    long diffHours = Math.abs(java.time.Duration.between(
-                            container.getEstimatedArrivalPort(), request.getActualArrivalPort()).toHours());
-                    if (diffHours > 48) {
-                        container.setDelayFlag(true);
-                    }
-                }
+                updateDelayFlag(container, container.getEstimatedArrivalPort(), request.getActualArrivalPort());
             }
             case DEPARTED_PORT -> {
                 if (request.getActualDeparturePort() == null) {
@@ -465,6 +460,7 @@ public class ContainerService {
                 if (request.getEstimatedArrivalWarehouse() != null) {
                     container.setEstimatedArrivalWarehouse(request.getEstimatedArrivalWarehouse());
                 }
+                updateDelayFlag(container, container.getEstimatedDeparturePort(), request.getActualDeparturePort());
             }
             case ARRIVED_WAREHOUSE -> {
                 if (request.getActualArrivalWarehouse() == null) {
@@ -479,6 +475,7 @@ public class ContainerService {
                             "La fecha real de arribo a bodega no puede ser anterior a la fecha real de salida de puerto.");
                 }
                 container.setActualArrivalWarehouse(request.getActualArrivalWarehouse());
+                updateDelayFlag(container, container.getEstimatedArrivalWarehouse(), request.getActualArrivalWarehouse());
             }
             default -> throw new BadRequestException("INVALID_TRANSITION", "Transición no soportada.");
         }
@@ -500,6 +497,23 @@ public class ContainerService {
                 .build());
 
         return enrich(containerMapper.toDto(container));
+    }
+
+    private static final long DELAY_THRESHOLD_HOURS = 48;
+
+    /**
+     * Delay is evaluated fresh at every transition, per stage — not accumulated. Only
+     * actual-after-estimated counts as a delay (arriving early is not a delay); an on-time
+     * or early stage clears whatever delayFlag the previous stage may have set, so the
+     * flag always reflects the most recently completed stage, not permanent history.
+     */
+    private void updateDelayFlag(Container container, OffsetDateTime estimated, OffsetDateTime actual) {
+        if (estimated == null || actual == null) {
+            container.setDelayFlag(false);
+            return;
+        }
+        long diffHours = java.time.Duration.between(estimated, actual).toHours();
+        container.setDelayFlag(diffHours > DELAY_THRESHOLD_HOURS);
     }
 
     private void enforceRolePermissions(Role role, ContainerStatus target) {

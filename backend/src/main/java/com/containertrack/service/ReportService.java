@@ -87,10 +87,10 @@ public class ReportService {
             timeline.addHeaderCell(cell("Fecha Real", true));
             timeline.addHeaderCell(cell("Diferencia (días)", true));
 
-            addTimelineRow(timeline, "Salida de origen", container.getEstimatedDepartureDate(), container.getActualDepartureDate(), container.getDelayFlag());
-            addTimelineRow(timeline, "Arribo a puerto", container.getEstimatedArrivalPort(), container.getActualArrivalPort(), container.getDelayFlag());
-            addTimelineRow(timeline, "Salida de puerto", container.getEstimatedDeparturePort(), container.getActualDeparturePort(), false);
-            addTimelineRow(timeline, "Arribo a bodega", container.getEstimatedArrivalWarehouse(), container.getActualArrivalWarehouse(), false);
+            addTimelineRow(timeline, "Salida de origen", container.getEstimatedDepartureDate(), container.getActualDepartureDate());
+            addTimelineRow(timeline, "Arribo a puerto", container.getEstimatedArrivalPort(), container.getActualArrivalPort());
+            addTimelineRow(timeline, "Salida de puerto", container.getEstimatedDeparturePort(), container.getActualDeparturePort());
+            addTimelineRow(timeline, "Arribo a bodega", container.getEstimatedArrivalWarehouse(), container.getActualArrivalWarehouse());
             document.add(timeline);
 
             if (!photos.isEmpty()) {
@@ -240,16 +240,20 @@ public class ReportService {
         return new Cell().add(p);
     }
 
-    private void addTimelineRow(Table table, String stage, OffsetDateTime estimated, OffsetDateTime actual, Boolean delay) {
+    private void addTimelineRow(Table table, String stage, OffsetDateTime estimated, OffsetDateTime actual) {
         String diff = "-";
+        boolean delay = false;
         if (estimated != null && actual != null) {
+            // Negative = actual happened before the estimate (ahead of schedule, not a delay);
+            // positive = actual happened after. Only flag the row when it ran genuinely late.
             diff = String.valueOf(ChronoUnit.DAYS.between(estimated, actual));
+            delay = Duration.between(estimated, actual).toHours() > 48;
         }
         Cell stageCell = cell(stage, false);
         Cell estCell = cell(formatGuatemala(estimated), false);
         Cell actCell = cell(formatGuatemala(actual), false);
         Cell diffCell = cell(diff, false);
-        if (Boolean.TRUE.equals(delay)) {
+        if (delay) {
             stageCell.setBackgroundColor(DELAY_COLOR);
             estCell.setBackgroundColor(DELAY_COLOR);
             actCell.setBackgroundColor(DELAY_COLOR);
