@@ -52,9 +52,10 @@ public class ContainerPhotoService {
         List<String> failed = new ArrayList<>();
 
         for (MultipartFile file : files) {
+            ContainerPhoto photo;
             try {
                 FileStorageService.UploadedFile result = fileStorageService.uploadFile(file, String.valueOf(containerId));
-                ContainerPhoto photo = ContainerPhoto.builder()
+                photo = ContainerPhoto.builder()
                         .containerId(containerId)
                         .r2Key(result.r2Key())
                         .originalFilename(result.originalFilename())
@@ -64,22 +65,36 @@ public class ContainerPhotoService {
                         .uploadedBy(uploadedBy)
                         .build();
                 photo = containerPhotoRepository.save(photo);
-
-                uploaded.add(PhotoDTO.builder()
-                        .photoId(photo.getId())
-                        .r2Key(photo.getR2Key())
-                        .presignedUrl(fileStorageService.generatePresignedUrl(photo.getR2Key(), PRESIGN_TTL))
-                        .originalFilename(photo.getOriginalFilename())
-                        .isValid(true)
-                        .uploadedById(uploadedBy)
-                        .uploadedByName(userRepository.findById(uploadedBy).map(u -> u.getFullName()).orElse(null))
-                        .uploadedAt(photo.getUploadedAt())
-                        .build());
             } catch (Exception e) {
                 log.warn("Skipping failed photo upload for container {}: {}", containerId,
                         file.getOriginalFilename(), e);
                 failed.add(file.getOriginalFilename());
+                continue;
             }
+
+            // The file is already uploaded to R2 and the row is already committed at this point —
+            // a hiccup generating the presigned URL for the immediate response is not an upload
+            // failure (the frontend's next listPhotos call will generate a fresh URL regardless).
+            // Previously this was inside the same try/catch as the save, so a transient presign
+            // error wrongly reported an already-successful upload as failed.
+            String presignedUrl;
+            try {
+                presignedUrl = fileStorageService.generatePresignedUrl(photo.getR2Key(), PRESIGN_TTL);
+            } catch (Exception e) {
+                log.warn("Photo {} saved but presigned URL generation failed: {}", photo.getId(), e.getMessage());
+                presignedUrl = null;
+            }
+
+            uploaded.add(PhotoDTO.builder()
+                    .photoId(photo.getId())
+                    .r2Key(photo.getR2Key())
+                    .presignedUrl(presignedUrl)
+                    .originalFilename(photo.getOriginalFilename())
+                    .isValid(true)
+                    .uploadedById(uploadedBy)
+                    .uploadedByName(userRepository.findById(uploadedBy).map(u -> u.getFullName()).orElse(null))
+                    .uploadedAt(photo.getUploadedAt())
+                    .build());
         }
 
         if (!uploaded.isEmpty()) {
