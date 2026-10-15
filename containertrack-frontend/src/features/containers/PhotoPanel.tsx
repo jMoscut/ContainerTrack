@@ -29,6 +29,12 @@ export function PhotoPanel({ containerId, readOnly, canInvalidate, onPhotoCountC
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Synchronous lock against double-clicks: uploadMutation.isPending only updates on the
+  // next render, so two clicks fired within the same tick (before React re-renders the
+  // disabled button) can both call mutate() — one request lands, the other gets cut off
+  // mid-flight and never reaches the backend, surfacing as a false "upload failed" toast
+  // alongside the real success. A ref flips synchronously, closing that window.
+  const isUploadingRef = useRef(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
 
@@ -116,10 +122,16 @@ export function PhotoPanel({ containerId, readOnly, canInvalidate, onPhotoCountC
   };
 
   const confirmUpload = () => {
-    if (pendingFiles.length === 0) return;
+    if (pendingFiles.length === 0 || isUploadingRef.current) return;
+    isUploadingRef.current = true;
     uploadMutation.mutate(
       pendingFiles.map((p) => p.file),
-      { onSuccess: () => setPendingFiles([]) },
+      {
+        onSuccess: () => setPendingFiles([]),
+        onSettled: () => {
+          isUploadingRef.current = false;
+        },
+      },
     );
   };
 
