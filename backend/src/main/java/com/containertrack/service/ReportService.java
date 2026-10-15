@@ -91,6 +91,10 @@ public class ReportService {
             addTimelineRow(timeline, "Arribo a puerto", container.getEstimatedArrivalPort(), container.getActualArrivalPort());
             addTimelineRow(timeline, "Salida de puerto", container.getEstimatedDeparturePort(), container.getActualDeparturePort());
             addTimelineRow(timeline, "Arribo a bodega", container.getEstimatedArrivalWarehouse(), container.getActualArrivalWarehouse());
+            if (container.getDischargeStartAt() != null || container.getDischargeEndAt() != null) {
+                addTimelineRow(timeline, "Inicio de descarga", null, container.getDischargeStartAt());
+                addTimelineRow(timeline, "Fin de descarga", null, container.getDischargeEndAt());
+            }
             document.add(timeline);
 
             if (!photos.isEmpty()) {
