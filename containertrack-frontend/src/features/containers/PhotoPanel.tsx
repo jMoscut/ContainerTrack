@@ -61,11 +61,11 @@ export function PhotoPanel({ containerId, readOnly, canInvalidate, onPhotoCountC
       if (result.uploaded.length) {
         toast.success(t("photos.uploadSuccess", { count: result.uploaded.length }));
       }
-      if (result.failed.length) {
+      if (result.failedFilenames.length) {
         toast.error(
           t("photos.uploadFailed", {
-            count: result.failed.length,
-            names: result.failed.map((f) => f.filename).join(", "),
+            count: result.failedFilenames.length,
+            names: result.failedFilenames.join(", "),
           }),
         );
       }

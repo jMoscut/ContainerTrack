@@ -143,14 +143,11 @@ export interface UploadedPhoto {
   presignedUrl: string;
 }
 
-export interface PhotoUploadFailure {
-  filename: string;
-  reason: string;
-}
-
 export interface PhotoUploadResponse {
   uploaded: UploadedPhoto[];
-  failed: PhotoUploadFailure[];
+  // Backend PhotoUploadResultDTO field is "failedFilenames" (plain strings), not "failed" —
+  // verified against the actual API response, matches ContainerPhotoService.uploadPhotos.
+  failedFilenames: string[];
 }
 
 export interface ContainerPhoto {
