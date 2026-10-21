@@ -9,6 +9,10 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5173",
     trace: "on-first-retry",
+    // The app's language detector (i18next-browser-languagedetector) reads
+    // navigator.language on first visit — without this, Chromium's default
+    // en-US locale makes every Spanish-text selector in these specs miss.
+    locale: "es-GT",
   },
   projects: [
     {
