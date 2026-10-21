@@ -6,7 +6,7 @@ on:
     paths:
       - "containertrack-frontend/**"
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "containertrack-frontend/**"
   workflow_dispatch:
