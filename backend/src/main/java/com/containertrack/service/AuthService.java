@@ -33,7 +33,11 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuditService auditService;
 
-    @Transactional
+    // noRollbackFor is required here: the failed-attempt counter write on line ~57
+    // must survive even though the method throws ApiException right after it — Spring's
+    // default rollback-on-unchecked-exception behavior was silently discarding that
+    // save(), so failedLoginAttempts never actually persisted and the account never locked.
+    @Transactional(noRollbackFor = ApiException.class)
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Credenciales inválidas."));
