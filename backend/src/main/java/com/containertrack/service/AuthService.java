@@ -19,7 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,8 @@ public class AuthService {
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final long LOCK_MINUTES = 15;
+    private static final ZoneId GUATEMALA_ZONE = ZoneId.of("America/Guatemala");
+    private static final DateTimeFormatter GUATEMALA_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -43,8 +47,9 @@ public class AuthService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Credenciales inválidas."));
 
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
+            String lockedUntilGuatemala = user.getLockedUntil().atZoneSameInstant(GUATEMALA_ZONE).format(GUATEMALA_FORMAT);
             throw new ApiException(HttpStatus.LOCKED, "ACCOUNT_LOCKED",
-                    "Cuenta bloqueada hasta " + user.getLockedUntil() + " debido a múltiples intentos fallidos.");
+                    "Cuenta bloqueada hasta " + lockedUntilGuatemala + " debido a múltiples intentos fallidos.");
         }
 
         if (user.getStatus() != UserStatus.ACTIVE && user.getStatus() != UserStatus.PENDING_ACTIVATION) {
